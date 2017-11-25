@@ -1,0 +1,9 @@
+.*
+!.gitignore
+sample_submission.7z
+sample_submission.csv
+test.7z
+test/
+train.7z
+train/
+__pycache__/
