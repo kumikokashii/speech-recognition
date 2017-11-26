@@ -1,11 +1,16 @@
 from scipy.io import wavfile
 import IPython.display as ipd
 import numpy as np
+
+from bokeh.layouts import row
 from bokeh.plotting import figure, show
+from bokeh.models import NumeralTickFormatter
 from bokeh.io import output_notebook
 output_notebook()
+
 from datetime import datetime
 import random
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 class Speech():
     def __init__(self, file_path, is_test=True, label=None):
@@ -35,6 +40,17 @@ class Speech():
         print(str(self))
         self.show_audio()
         self.show_graph()
+        
+    def get_data_array_of_length(self, vector_len):
+        if self.data_len == vector_len:
+            return np.copy(self.data)
+        
+        if self.data_len < vector_len:  # Pad with zeros at the end
+            output = np.zeros(vector_len)
+            output[: self.data_len] = self.data
+            return output
+        
+        return self.data[: vector_len]  # Trim the end
         
 class SpeechList(list):
     def __init__(self, name):
@@ -74,7 +90,7 @@ class SpeechList(list):
             
             if not annotate:
                 continue
-            if (i > 0) and (i % 50000 == 0):  # Print ever 50k data
+            if (i > 0) and (i % 50000 == 0):  # Print every 50k files
                 now = datetime.now()
                 passed_min = (now - start_time).seconds // 60
                 passed_sec = (now - start_time).seconds % 60
@@ -110,4 +126,83 @@ class SpeechList(list):
         else:
             list_ = self.get_list_of_label(label)
         return random.choice(list_)
+    
+    def get_stats(self):
         
+        # Find most frequently found data size
+        list_ = [speech.data_len for speech in self]
+        len_ = len(list_)
+        hist, edges = np.histogram(list_, range=(0, max(list_)), bins=max(list_)+1)
+        most_often_data_size = np.argmax(hist)
+
+        # Done if only one one data size
+        if hist[most_often_data_size] == len_:
+            print('All {:,} files are data size {:,}'.format(len_, most_often_data_size))
+            return
+
+        # Find stats on files of less than or more than the most frequent data size
+        less_than_most_often_list = []
+        more_than_most_often_list = []
+        for data_len in list_:
+            if data_len < most_often_data_size:
+                less_than_most_often_list.append(data_len)
+            elif data_len > most_often_data_size:
+                more_than_most_often_list.append(data_len)
+
+        print('Most often data size: {:,} ({:.2f}% of {} set i.e. {:,} out of {:,} files)'.format(most_often_data_size,
+              hist[most_often_data_size]/len_*100, self.name, hist[most_often_data_size], len_))
+
+        print('Less than data size {:,}: {:.2f}% of {} set i.e. {:,} out of {:,} files'.format(most_often_data_size,
+              len(less_than_most_often_list)/len_*100, self.name, len(less_than_most_often_list), len_))
+
+        print('More than data size {:,}: {:.2f}% of {} set i.e. {:,} out of {:,} files'.format(most_often_data_size,
+              len(more_than_most_often_list)/len_*100, self.name, len(more_than_most_often_list), len_)) 
+
+        def draw_histogram(title, hist, edges, color=None):
+            p = figure(title=title, width=450, height=250)
+            if color is None:
+                p.quad(bottom=0, top=hist, left=edges[:-1], right=edges[1:])
+            else:
+                p.quad(bottom=0, top=hist, left=edges[:-1], right=edges[1:], color=color)
+            p.xaxis.axis_label = 'data size'
+            p.yaxis.axis_label = '# of files'
+            p.xaxis.formatter = NumeralTickFormatter(format='0,000')
+            p.yaxis.formatter = NumeralTickFormatter(format='0,000')
+            return p
+
+        hist1, edges1 = np.histogram(less_than_most_often_list, range=(0, most_often_data_size-1), bins=50)
+        p1 = draw_histogram(title='# of Files with Data Size < {:,}'.format(most_often_data_size),
+                            hist=hist1, edges=edges1)
+
+        hist2, edges2 = np.histogram(more_than_most_often_list, bins=50)
+        p2 = draw_histogram(title='# of Files with Data Size > {:,}'.format(most_often_data_size),
+                            hist=hist2, edges=edges2, color='#9ecae1')
+
+        p = row(p1, p2)
+        show(p)
+        
+    def get_feature_matrix(self, vector_len):
+        list_ = []
+        for speech in self:
+            list_.append(speech.get_data_array_of_length(vector_len))
+        return np.matrix(list_)
+    
+    def get_label_matrix(self):
+        # Labels in one dimension
+        list_ = []
+        for speech in self:
+            list_.append(speech.label)
+
+        # Label indexes in one dimension
+        le = LabelEncoder()
+        i_list = le.fit_transform(list_)
+
+        # One hot encode label indexes
+        i_list_reshaped = [[i] for i in i_list]
+        enc = OneHotEncoder()
+        return enc.fit_transform(i_list_reshaped)
+    
+    def get_X_and_y_matrices(self, X_vector_len):
+        X = self.get_feature_matrix(X_vector_len)
+        y = self.get_label_matrix()
+        return X, y
