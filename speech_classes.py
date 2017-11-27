@@ -11,6 +11,9 @@ output_notebook()
 from datetime import datetime
 import random
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.model_selection import train_test_split
+
+import os
 
 class Speech():
     def __init__(self, file_path, is_test=True, label=None):
@@ -54,7 +57,7 @@ class Speech():
         
 class SpeechList(list):
     def __init__(self, name):
-        super().__init__(self)
+        super().__init__()
         self.name = name
         
     def get_labels(self):
@@ -199,10 +202,39 @@ class SpeechList(list):
 
         # One hot encode label indexes
         i_list_reshaped = [[i] for i in i_list]
-        enc = OneHotEncoder()
+        enc = OneHotEncoder(sparse=False)
         return enc.fit_transform(i_list_reshaped)
     
-    def get_X_and_y_matrices(self, X_vector_len):
+    def get_X_and_y_matrices(self, X_vector_len, split=None):
         X = self.get_feature_matrix(X_vector_len)
         y = self.get_label_matrix()
-        return X, y
+        
+        if split is None:
+            return X, y
+        
+        X1, X2, y1, y2 = train_test_split(X, y, test_size=(1-split), random_state=0)
+        return X1, y1, X2, y2
+    
+    def get_train(path2files_dir):  # Static
+        train = SpeechList(name='Train')
+        for sub_dir in os.listdir(path2files_dir):
+            path2sub_dir = path2files_dir + '/' + sub_dir
+            if os.path.isfile(path2sub_dir):
+                continue
+            for file in os.listdir(path2sub_dir):
+                speech = Speech(path2sub_dir + '/' + file, is_test=False, label=sub_dir)
+                train.append(speech)
+
+        train.get_wav_data(annotate=False)
+        non_wav_file_path = 'train/audio/_background_noise_/README.md'
+        train.remove_speech_by_file_path(non_wav_file_path)
+        return train
+    
+    def get_test(path2files_dir):  # Static
+        test = SpeechList(name='Test')
+        for file in os.listdir(path2files_dir):
+            speech = Speech(path2files_dir + '/' + file)
+            test.append(speech)
+
+        test.get_wav_data(annotate=False)
+        return test
