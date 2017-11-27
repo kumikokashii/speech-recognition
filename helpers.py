@@ -21,8 +21,8 @@ class Config():
         return output
 
 class Log():
-    def __init__(self, graph_name, g_cnfg, t_cnfg):
-        self.save_as = '_'.join([graph_name, g_cnfg.name, t_cnfg.name]) + '.log'
+    def __init__(self, log_dir, joined_name, g_cnfg, t_cnfg):
+        self.save_as = log_dir + '/' + joined_name + '.log'
         self.g_cnfg = g_cnfg
         self.t_cnfg = t_cnfg
         self.n_ave_ll_valid = t_cnfg.n_ave_ll_valid
@@ -40,6 +40,8 @@ class Log():
         
         self.train_start = None
         self.train_end = None
+        
+        self.save()
         
     def save(self):
         pickle.dump(self, open(self.save_as, 'wb'))     
