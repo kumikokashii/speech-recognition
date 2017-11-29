@@ -39,6 +39,9 @@ class UsefulTFGraph(tf.Graph):
             for step in range(0, cnfg.max_step):
                 if step == 0:  # Only first time
                     self.log.train_start = datetime.now()
+                    print('='*60)
+                    print(joined_name)
+                    print('='*60)
                     print('Training starts @ {:%m/%d/%Y %H:%M:%S}'.format(self.log.train_start))
                     
                     self.offset = 0
