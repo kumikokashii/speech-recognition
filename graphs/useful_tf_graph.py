@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import os
 import shutil
 
-from helpers import *
+from .helpers import *
 
 
 class UsefulTFGraph(tf.Graph):
@@ -26,7 +26,7 @@ class UsefulTFGraph(tf.Graph):
         
         joined_name = '_'.join([self.name, self.g_cnfg.name, cnfg.name])
         self.make_ckp_tb_dir(cnfg.ckp_dir, cnfg.tb_dir, joined_name)
-        self.log = Log(cnfg.log_dir, joined_name, self.g_cnfg, cnfg)  # Create log
+        self.log = Log(cnfg.log_dir, joined_name, self.ckp_dir, self.tb_dir, self.g_cnfg, cnfg)  # Create log
         
         with tf.Session(graph=self) as self.sess: 
             # Initializations

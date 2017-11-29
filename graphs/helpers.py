@@ -21,8 +21,10 @@ class Config():
         return output
 
 class Log():
-    def __init__(self, log_dir, joined_name, g_cnfg, t_cnfg):
+    def __init__(self, log_dir, joined_name, ckp_dir, tb_dir, g_cnfg, t_cnfg):
         self.save_as = log_dir + '/' + joined_name + '.log'
+        self.ckp_dir = ckp_dir
+        self.tb_dir = tb_dir
         self.g_cnfg = g_cnfg
         self.t_cnfg = t_cnfg
         self.n_ave_ll_valid = t_cnfg.n_ave_ll_valid
