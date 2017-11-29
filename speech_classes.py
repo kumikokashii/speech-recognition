@@ -5,7 +5,7 @@ import numpy as np
 from bokeh.layouts import row
 from bokeh.plotting import figure, show
 from bokeh.models import NumeralTickFormatter
-from bokeh.io import output_notebook
+from bokeh.io import output_notebook, export_png
 output_notebook()
 
 from datetime import datetime
@@ -14,6 +14,19 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.model_selection import train_test_split
 
 import os
+
+# For github, that doesn't show bokeh graphs
+import builtins
+
+use_bokeh_screenshot = False
+if hasattr(builtins, 'use_bokeh_screenshot'):
+    use_bokeh_screenshot = builtins.use_bokeh_screenshot
+
+if use_bokeh_screenshot:
+    def show(p):
+        filename = 'temp_img.png'
+        ipd.display(ipd.Image(export_png(p, filename=filename)))
+        os.remove(filename)
 
 class Speech():
     def __init__(self, file_path, is_test=True, label=None):
