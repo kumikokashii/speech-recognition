@@ -4,7 +4,6 @@ import tensorflow as tf
 class TestLSTM(UsefulTFGraph):
     def __init__(self, g_cnfg):
         super().__init__()
-        self.name = 'TestLSTM'
         self.build(g_cnfg)
 
     def weight_variable(self, shape, weights_stddev, name):

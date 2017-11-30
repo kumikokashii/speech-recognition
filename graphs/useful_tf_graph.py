@@ -13,6 +13,7 @@ from .helpers import *
 class UsefulTFGraph(tf.Graph):
     def __init__(self):
         super().__init__()
+        self.name = self.__class__.__name__
 
     def train_model(self, cnfg, Xy_train_valid, annotate=True):
         # Prep
@@ -26,7 +27,7 @@ class UsefulTFGraph(tf.Graph):
         
         joined_name = '_'.join([self.name, self.g_cnfg.name, cnfg.name])
         self.make_ckp_tb_dir(cnfg.ckp_dir, cnfg.tb_dir, joined_name)
-        self.log = Log(cnfg.log_dir, joined_name, self.ckp_dir, self.tb_dir, self.g_cnfg, cnfg)  # Create log
+        self.log = Log(cnfg.log_dir, joined_name, self.name, self.ckp_dir, self.tb_dir, self.g_cnfg, cnfg)
         
         with tf.Session(graph=self) as self.sess: 
             # Initializations
@@ -82,7 +83,7 @@ class UsefulTFGraph(tf.Graph):
             self.log.save()
             self.make_ckp(self.saver_hourly, 'hourly', step)
             
-    def load_and_predict(self, path2ckp, X_test):
+    def load_and_predict(self, X_test, path2ckp):
         # User specifies checkpoint
         with tf.Session(graph=self) as sess:
             tf.global_variables_initializer().run()
