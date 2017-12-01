@@ -28,8 +28,8 @@ class TestLSTM(UsefulTFGraph):
             # (batch size) x (length of time) x (dim of data at each time)
             
             batch_size = tf.shape(self.X)[0]
-            initial_state = cell.zero_state(batch_size, tf.float32)
             cell = tf.contrib.rnn.BasicLSTMCell(cnfg.lstm_state_size)  # forget_bias=1.0
+            initial_state = cell.zero_state(batch_size, tf.float32)
             outputs, final_state = tf.nn.dynamic_rnn(cell, X_lstm, initial_state=initial_state)
             # outputs is (batch size) x (length of time) x (lstm state size)
             final_output = outputs[:, -1, :]
@@ -40,8 +40,8 @@ class TestLSTM(UsefulTFGraph):
             XW1 = tf.matmul(X1, W1) + b1
             X2 = tf.nn.relu(XW1)
 
-            W2 = self.weight_variable([cnfg.n_hidden, cnfg.y_vector_len], 0.015, 'W2')
-            b2 = self.bias_variable(0.1, [cnfg.y_vector_len], 'b2')
+            W2 = self.weight_variable([cnfg.n_hidden, cnfg.Y_vector_len], 0.015, 'W2')
+            b2 = self.bias_variable(0.1, [cnfg.Y_vector_len], 'b2')
             self.logits = tf.matmul(X2, W2) + b2
 
             self.logloss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.Y, logits=self.logits))

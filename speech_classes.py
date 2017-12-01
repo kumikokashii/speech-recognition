@@ -225,7 +225,7 @@ class SpeechList(list):
         if split is None:
             return X, Y
         
-        X1, X2, Y1, Y2 = train_test_split(X, y, test_size=(1-split), random_state=0)
+        X1, X2, Y1, Y2 = train_test_split(X, Y, test_size=(1-split), random_state=0)
         return X1, Y1, X2, Y2
     
     def get_train(path2files_dir):  # Static

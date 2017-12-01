@@ -15,12 +15,12 @@ class UsefulTFGraph(tf.Graph):
         super().__init__()
         self.name = self.__class__.__name__
 
-    def train_model(self, cnfg, Xy_train_valid, annotate=True):
+    def train_model(self, cnfg, XY_train_valid, annotate=True):
         # Prep
         self.batch_size = cnfg.batch_size
         self.early_stopping_patience = cnfg.early_stopping_patience
 
-        self.X_train, self.y_train, X_valid, y_valid = Xy_train_valid
+        self.X_train, self.Y_train, X_valid, Y_valid = XY_train_valid
         self.len_X_train = len(self.X_train)
         
         self.annotate = annotate
@@ -49,17 +49,17 @@ class UsefulTFGraph(tf.Graph):
                     self.last_hr_model_time = datetime.now()
                     self.patient_till = float('inf')
 
-                X_batch, y_batch = self.get_next_batch()
+                X_batch, Y_batch = self.get_next_batch()
                 
                 _, summary = self.sess.run([self.optimizer, self.summarizer], 
-                                           feed_dict={self.X: X_batch, self.y: y_batch, 
+                                           feed_dict={self.X: X_batch, self.Y: Y_batch, 
                                                       self.keep_prob: cnfg.dropout_keep_prob, 
                                                       self.is_training: True})
                 
                 if step % cnfg.log_every == 0:  # Keep track of training progress                    
-                    ll_train = self.logloss.eval(feed_dict={self.X: X_batch, self.y: y_batch, 
+                    ll_train = self.logloss.eval(feed_dict={self.X: X_batch, self.Y: Y_batch, 
                                                             self.keep_prob: 1.0, self.is_training: False})
-                    ll_valid = self.logloss.eval(feed_dict={self.X: X_valid, self.y: y_valid, 
+                    ll_valid = self.logloss.eval(feed_dict={self.X: X_valid, self.Y: Y_valid, 
                                                             self.keep_prob: 1.0, self.is_training: False})
                     
                     self.save_basics(step, ll_train, ll_valid, summary)
@@ -91,10 +91,10 @@ class UsefulTFGraph(tf.Graph):
             saver = tf.train.Saver()
             saver.restore(sess, path2ckp)  # Load model
             
-            y_test = self.logits.eval(feed_dict={self.X: X_test,  
+            Y_test = self.logits.eval(feed_dict={self.X: X_test,  
                                                  self.keep_prob: 1.0,
                                                  self.is_training: False})
-        return y_test
+        return Y_test
             
     def predict(self, X_test, ckp_dir=None):
         # Use best model i.e. model with best ave ll valid
@@ -124,18 +124,18 @@ class UsefulTFGraph(tf.Graph):
         
     def get_next_batch(self):
         if self.offset == 0:  # Shuffle every epoch
-            self.X_train, self.y_train = shuffle(self.X_train, self.y_train)
+            self.X_train, self.Y_train = shuffle(self.X_train, self.Y_train)
 
         if self.offset <= (self.len_X_train - self.batch_size):  # Enough for next batch
             X_batch = self.X_train[self.offset: self.offset+self.batch_size, :]
-            y_batch = self.y_train[self.offset: self.offset+self.batch_size, :]
+            Y_batch = self.Y_train[self.offset: self.offset+self.batch_size, :]
             self.offset += self.batch_size
         else:
             X_batch = self.X_train[self.offset: self.len_X_train, :]  # All to the end
-            y_batch = self.y_train[self.offset: self.len_X_train, :]
+            Y_batch = self.Y_train[self.offset: self.len_X_train, :]
             self.offset = 0
         
-        return X_batch, y_batch
+        return X_batch, Y_batch
 
     def save_basics(self, step, ll_train, ll_valid, summary):
         self.log.record(step, ll_train, ll_valid)  # Log file
