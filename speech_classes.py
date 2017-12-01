@@ -218,15 +218,15 @@ class SpeechList(list):
         enc = OneHotEncoder(sparse=False)
         return enc.fit_transform(i_list_reshaped)
     
-    def get_X_and_y_matrices(self, X_vector_len, split=None):
+    def get_X_and_Y_matrices(self, X_vector_len, split=None):
         X = self.get_feature_matrix(X_vector_len)
-        y = self.get_label_matrix()
+        Y = self.get_label_matrix()
         
         if split is None:
-            return X, y
+            return X, Y
         
-        X1, X2, y1, y2 = train_test_split(X, y, test_size=(1-split), random_state=0)
-        return X1, y1, X2, y2
+        X1, X2, Y1, Y2 = train_test_split(X, y, test_size=(1-split), random_state=0)
+        return X1, Y1, X2, Y2
     
     def get_train(path2files_dir):  # Static
         train = SpeechList(name='Train')
