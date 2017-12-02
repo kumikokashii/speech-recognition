@@ -1,6 +1,11 @@
 import pickle
 from datetime import datetime
 
+from bokeh.plotting import figure, show
+from .bokeh4github import show
+from bokeh.models import NumeralTickFormatter, PrintfTickFormatter, Legend
+
+
 class Config():
     def __init__(self, name):
         self.name = name
@@ -76,4 +81,30 @@ class Log():
         self.best_model_step = self.steps[-1]
         self.best_model_ll = self.ave_ll_valid[-1]
         self.best_model_patient_till = patient_till
+        
+    def show_progress(self):
+        title = ' > '.join([self.graph_name, self.g_cnfg.name, self.t_cnfg.name])
+        p = figure(title=title, plot_width=1000, plot_height=400)
+
+        p_list = [['average valid. logloss', self.ave_ll_valid, '#ffb3ba'],  # red
+                  ['valid. logloss', self.ll_valid, '#e1f7d5'],  # green
+                  ['train logloss', self.ll_train, '#c9c9ff']]  # blue
+
+        for i in range(len(p_list)):
+            name, array, color = p_list[i]
+            line = p.line(self.steps, array, line_width=3, color=color)
+            p_list[i].append(line)
+
+        p.xaxis.axis_label = 'steps'
+        p.yaxis.axis_label = 'logloss'
+        p.xaxis.formatter = NumeralTickFormatter(format='0,000')
+        p.yaxis.formatter = PrintfTickFormatter(format='%.3f')
+
+        legend = Legend(items=[(name, [line]) for name, array, color, line in p_list],
+                        location='top_right',
+                        orientation='vertical',
+                        click_policy='hide')
+        p.add_layout(legend)
+
+        show(p)
         

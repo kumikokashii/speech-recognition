@@ -1,72 +1,18 @@
-from scipy.io import wavfile
-import IPython.display as ipd
 import numpy as np
 
-from bokeh.layouts import row
 from bokeh.plotting import figure, show
+from .bokeh4github import show
 from bokeh.models import NumeralTickFormatter
-from bokeh.io import output_notebook, export_png
-output_notebook()
+from bokeh.layouts import row
 
 from datetime import datetime
 import random
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.model_selection import train_test_split
 
+from .speech import *
 import os
 
-# For github, that doesn't show bokeh graphs
-import builtins
-
-use_bokeh_screenshot = False
-if hasattr(builtins, 'use_bokeh_screenshot'):
-    use_bokeh_screenshot = builtins.use_bokeh_screenshot
-
-if use_bokeh_screenshot:
-    def show(p):
-        filename = 'temp_img.png'
-        ipd.display(ipd.Image(export_png(p, filename=filename)))
-        os.remove(filename)
-
-class Speech():
-    def __init__(self, file_path, is_test=True, label=None):
-        self.file_path = file_path
-        self.is_test = is_test
-        self.label = label
-        self.sample_rate = None
-        self.data = None
-        self.data_len = None
-        
-    def __str__(self):
-        return '{}, {}, sample rate {}, data length {}'.format(self.label, self.file_path, self.sample_rate, self.data_len)
-
-    def get_wav_data(self):
-        self.sample_rate, self.data = wavfile.read(self.file_path)
-        self.data_len = len(self.data)
-        
-    def show_audio(self):
-        ipd.display(ipd.Audio(self.file_path))
-    
-    def show_graph(self):
-        p = figure(plot_width=1000, plot_height=400)
-        p.line(np.arange(len(self.data)), self.data, line_width=1)
-        show(p)
-    
-    def hear_and_see(self):
-        print(str(self))
-        self.show_audio()
-        self.show_graph()
-        
-    def get_data_array_of_length(self, vector_len):
-        if self.data_len == vector_len:
-            return np.copy(self.data)
-        
-        if self.data_len < vector_len:  # Pad with zeros at the end
-            output = np.zeros(vector_len)
-            output[: self.data_len] = self.data
-            return output
-        
-        return self.data[: vector_len]  # Trim the end
         
 class SpeechList(list):
     def __init__(self, name):

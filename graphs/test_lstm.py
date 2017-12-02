@@ -44,6 +44,7 @@ class TestLSTM(UsefulTFGraph):
             b2 = self.bias_variable(0.1, [cnfg.Y_vector_len], 'b2')
             self.logits = tf.matmul(X2, W2) + b2
 
+            self.logloss_batch_sum = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(labels=self.Y, logits=self.logits))
             self.logloss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.Y, logits=self.logits))
 
             learning_rate = tf.train.exponential_decay(cnfg.lr_initial, global_step, 

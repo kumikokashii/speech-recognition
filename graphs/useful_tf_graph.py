@@ -20,8 +20,9 @@ class UsefulTFGraph(tf.Graph):
         self.batch_size = cnfg.batch_size
         self.early_stopping_patience = cnfg.early_stopping_patience
 
-        self.X_train, self.Y_train, X_valid, Y_valid = XY_train_valid
+        self.X_train, self.Y_train, self.X_valid, self.Y_valid = XY_train_valid
         self.len_X_train = len(self.X_train)
+        self.len_X_valid = len(self.X_valid)
         
         self.annotate = annotate
         
@@ -59,8 +60,7 @@ class UsefulTFGraph(tf.Graph):
                 if step % cnfg.log_every == 0:  # Keep track of training progress                    
                     ll_train = self.logloss.eval(feed_dict={self.X: X_batch, self.Y: Y_batch, 
                                                             self.keep_prob: 1.0, self.is_training: False})
-                    ll_valid = self.logloss.eval(feed_dict={self.X: X_valid, self.Y: Y_valid, 
-                                                            self.keep_prob: 1.0, self.is_training: False})
+                    ll_valid = self.get_ll_valid()  # Split into batches to avoid running out of resource
                     
                     self.save_basics(step, ll_train, ll_valid, summary)
                     self.ave_ll_valid = self.log.ave_ll_valid[-1]
@@ -82,7 +82,7 @@ class UsefulTFGraph(tf.Graph):
             
             self.log.save()
             self.make_ckp(self.saver_hourly, 'hourly', step)
-            
+                 
     def load_and_predict(self, X_test, path2ckp):
         # User specifies checkpoint
         with tf.Session(graph=self) as sess:
@@ -126,17 +126,30 @@ class UsefulTFGraph(tf.Graph):
         if self.offset == 0:  # Shuffle every epoch
             self.X_train, self.Y_train = shuffle(self.X_train, self.Y_train)
 
+        X_batch = self.X_train[self.offset: self.offset+self.batch_size, :]
+        Y_batch = self.Y_train[self.offset: self.offset+self.batch_size, :]
+        
         if self.offset <= (self.len_X_train - self.batch_size):  # Enough for next batch
-            X_batch = self.X_train[self.offset: self.offset+self.batch_size, :]
-            Y_batch = self.Y_train[self.offset: self.offset+self.batch_size, :]
             self.offset += self.batch_size
-        else:
-            X_batch = self.X_train[self.offset: self.len_X_train, :]  # All to the end
-            Y_batch = self.Y_train[self.offset: self.len_X_train, :]
+        else:  # Reached epoch end
             self.offset = 0
         
         return X_batch, Y_batch
 
+    def get_ll_valid(self):
+        offset = 0
+        sum_ll_valid = 0
+        while (offset < self.len_X_valid):
+            X_batch = self.X_valid[offset: offset+self.batch_size, :]
+            Y_batch = self.Y_valid[offset: offset+self.batch_size, :]
+            offset += self.batch_size
+            
+            batch_ll_valid = self.logloss_batch_sum.eval(feed_dict={self.X: X_batch, self.Y: Y_batch, 
+                                                                    self.keep_prob: 1.0, self.is_training: False})
+            sum_ll_valid += batch_ll_valid
+            
+        return (sum_ll_valid / self.len_X_valid)    
+    
     def save_basics(self, step, ll_train, ll_valid, summary):
         self.log.record(step, ll_train, ll_valid)  # Log file
         self.log.save()
