@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import os
 import shutil
 
-from .helpers import *
+from .train_log import *
 
 
 class UsefulTFGraph(tf.Graph):

@@ -3,7 +3,7 @@ import IPython.display as ipd
 import numpy as np
 
 from bokeh.plotting import figure, show
-from .bokeh4github import show
+from ..bokeh4github import show
 
 
 class Speech():

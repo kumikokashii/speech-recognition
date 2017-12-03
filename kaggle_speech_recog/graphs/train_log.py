@@ -2,28 +2,9 @@ import pickle
 from datetime import datetime
 
 from bokeh.plotting import figure, show
-from .bokeh4github import show
+from ..bokeh4github import show
 from bokeh.models import NumeralTickFormatter, PrintfTickFormatter, Legend
 
-
-class Config():
-    def __init__(self, name):
-        self.name = name
-        
-    def __str__(self):
-        sorted_attr = sorted(self.__dict__)
-        sorted_attr.remove('name')
-        sorted_attr.insert(0, 'name')
-        
-        output = ''
-        for key in sorted_attr:
-            value = self.__dict__[key]
-            if isinstance(value, int):
-                output += '{}: {:,}'.format(key, value)
-            else:
-                output += '{}: {}'.format(key, value)
-            output += '\n'
-        return output
 
 class Log():
     def __init__(self, log_dir, joined_name, graph_name, ckp_dir, tb_dir, g_cnfg, t_cnfg):
@@ -35,7 +16,6 @@ class Log():
         self.t_cnfg = t_cnfg
         self.n_ave_ll_valid = t_cnfg.n_ave_ll_valid
 
-        self.index = []
         self.steps = []
         self.ll_train = []
         self.ll_valid = []
@@ -55,7 +35,6 @@ class Log():
         pickle.dump(self, open(self.save_as, 'wb'))     
         
     def record(self, step, ll_train, ll_valid):
-        self.index.append(len(self.index))
         self.steps.append(step)
         self.ll_train.append(ll_train)
         self.ll_valid.append(ll_valid)

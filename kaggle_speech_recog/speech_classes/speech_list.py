@@ -1,7 +1,7 @@
 import numpy as np
 
 from bokeh.plotting import figure, show
-from .bokeh4github import show
+from ..bokeh4github import show
 from bokeh.models import NumeralTickFormatter
 from bokeh.layouts import row
 
