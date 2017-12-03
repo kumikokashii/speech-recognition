@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import os
 import shutil
+import numpy as np
 
 from .train_log import *
 
@@ -26,9 +27,9 @@ class UsefulTFGraph(tf.Graph):
         
         self.annotate = annotate
         
-        joined_name = '_'.join([self.name, self.g_cnfg.name, cnfg.name])
+        joined_name = '_'.join([self.name, self.cnfg.name, cnfg.name])
         self.make_ckp_tb_dir(cnfg.ckp_dir, cnfg.tb_dir, joined_name)
-        self.log = Log(cnfg.log_dir, joined_name, self.name, self.ckp_dir, self.tb_dir, self.g_cnfg, cnfg)
+        self.log = Log(cnfg.log_dir, joined_name, self.name, self.ckp_dir, self.tb_dir, self.cnfg, cnfg)
         
         with tf.Session(graph=self) as self.sess: 
             # Initializations
@@ -57,12 +58,13 @@ class UsefulTFGraph(tf.Graph):
                                                       self.keep_prob: cnfg.dropout_keep_prob, 
                                                       self.is_training: True})
                 
-                if step % cnfg.log_every == 0:  # Keep track of training progress                    
-                    ll_train = self.logloss.eval(feed_dict={self.X: X_batch, self.Y: Y_batch, 
-                                                            self.keep_prob: 1.0, self.is_training: False})
-                    ll_valid = self.get_ll_valid()  # Split into batches to avoid running out of resource
+                if step % cnfg.log_every == 0:  # Keep track of training progress
+                    accu_train, ll_train = self.sess.run([self.accuracy, self.logloss], 
+                                                         feed_dict={self.X: X_batch, self.Y: Y_batch, 
+                                                                    self.keep_prob: 1.0, self.is_training: False})
+                    accu_valid, ll_valid = self.get_accu_ll_valid()  # Split into batches to avoid running out of resource
                     
-                    self.save_basics(step, ll_train, ll_valid, summary)
+                    self.save_basics(step, accu_train, ll_train, accu_valid, ll_valid, summary)
                     self.ave_ll_valid = self.log.ave_ll_valid[-1]
                     
                     self.make_ckp_if_hour_passed(step)
@@ -74,7 +76,7 @@ class UsefulTFGraph(tf.Graph):
                         break
 
                 if (annotate) & (step % cnfg.print_every == 0):
-                    print('Step {:,} ends @ {:%m/%d/%Y %H:%M:%S} [Train ll] {:.3f} [Ave valid ll] {:.3f}'.format(step, datetime.now(), ll_train, self.ave_ll_valid))
+                    print('Step {:,} ends @ {:%m/%d/%Y %H:%M:%S} [Train] {:.3f}, {:.1f}% [Valid] {:.1f}% [Ave valid] {:.3f}'.format(step, datetime.now(), ll_train, accu_train*100, accu_valid*100, self.ave_ll_valid))
 
             # The End
             log.train_end = datetime.now()
@@ -83,28 +85,37 @@ class UsefulTFGraph(tf.Graph):
             self.log.save()
             self.make_ckp(self.saver_hourly, 'hourly', step)
                  
-    def load_and_predict(self, X_test, path2ckp):
+    def load_and_predict(self, X_test, path2ckp, batch_size):
+        len_X_test = len(X_test)
+        
         # User specifies checkpoint
         with tf.Session(graph=self) as sess:
             tf.global_variables_initializer().run()
             
             saver = tf.train.Saver()
             saver.restore(sess, path2ckp)  # Load model
-            
-            Y_test = self.logits.eval(feed_dict={self.X: X_test,  
-                                                 self.keep_prob: 1.0,
-                                                 self.is_training: False})
+
+            offset = 0
+            Y_test = np.empty([len_X_test, self.cnfg.Y_vector_len])
+            while (offset < len_X_test):
+                X_batch = X_test[offset: offset+batch_size, :]
+                Y_batch = self.logits.eval(feed_dict={self.X: X_batch, 
+                                                      self.keep_prob: 1.0,
+                                                      self.is_training: False})
+                
+                Y_test[offset: offset+batch_size, :] = Y_batch
+                offset += batch_size
+
         return Y_test
             
-    def predict(self, X_test, ckp_dir=None):
+    def predict(self, X_test, ckp_dir=None, batch_size=10000):
         # Use best model i.e. model with best ave ll valid
         if ckp_dir is None:
             ckp_dir = self.ckp_dir
         
-        ckp = max(os.listdir(ckp_dir + '/best'), key=os.path.getctime)
-        path2ckp = '/'.join([ckp_dir, 'best', ckp])
+        path2ckp = tf.train.latest_checkpoint(ckp_dir + '/best', 'best_checkpoint')
         
-        return self.load_and_predict(path2ckp, X_test)
+        return self.load_and_predict(X_test, path2ckp, batch_size)
 
     
     # Helpers for train_model       
@@ -136,22 +147,27 @@ class UsefulTFGraph(tf.Graph):
         
         return X_batch, Y_batch
 
-    def get_ll_valid(self):
+    def get_accu_ll_valid(self):
         offset = 0
+        count_accu_valid = 0
         sum_ll_valid = 0
         while (offset < self.len_X_valid):
             X_batch = self.X_valid[offset: offset+self.batch_size, :]
             Y_batch = self.Y_valid[offset: offset+self.batch_size, :]
-            offset += self.batch_size
+            offset += self.batch_size        
             
-            batch_ll_valid = self.logloss_batch_sum.eval(feed_dict={self.X: X_batch, self.Y: Y_batch, 
-                                                                    self.keep_prob: 1.0, self.is_training: False})
+            batch_accu_valid, batch_ll_valid = self.sess.run([self.accuracy_batch_count, self.logloss_batch_sum],
+                                                             feed_dict={self.X: X_batch, self.Y: Y_batch, 
+                                                                        self.keep_prob: 1.0, self.is_training: False})
+            count_accu_valid += batch_accu_valid
             sum_ll_valid += batch_ll_valid
             
-        return (sum_ll_valid / self.len_X_valid)    
+        accu_valid = count_accu_valid / self.len_X_valid
+        ll_valid = sum_ll_valid / self.len_X_valid
+        return accu_valid, ll_valid
     
-    def save_basics(self, step, ll_train, ll_valid, summary):
-        self.log.record(step, ll_train, ll_valid)  # Log file
+    def save_basics(self, step, accu_train, ll_train, accu_valid, ll_valid, summary):
+        self.log.record(step, accu_train, ll_train, accu_valid, ll_valid)  # Log file
         self.log.save()
         self.writer.add_summary(summary, step)  # Tensorboard
         

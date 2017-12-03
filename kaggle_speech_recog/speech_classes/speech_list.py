@@ -12,12 +12,14 @@ from sklearn.model_selection import train_test_split
 
 from .speech import *
 import os
+import pandas as pd
 
         
 class SpeechList(list):
     def __init__(self, name):
         super().__init__()
         self.name = name
+        self.le = None
         
     def get_labels(self):
         labels = []
@@ -156,8 +158,8 @@ class SpeechList(list):
             list_.append(speech.label)
 
         # Label indexes in one dimension
-        le = LabelEncoder()
-        i_list = le.fit_transform(list_)
+        self.le = LabelEncoder()
+        i_list = self.le.fit_transform(list_)
 
         # One hot encode label indexes
         i_list_reshaped = [[i] for i in i_list]
@@ -189,11 +191,39 @@ class SpeechList(list):
         train.remove_speech_by_file_path(non_wav_file_path)
         return train
     
-    def get_test(path2files_dir):  # Static
+    def get_test(path2files_dir, first=None):  # Static
         test = SpeechList(name='Test')
+        count = 0
         for file in os.listdir(path2files_dir):
             speech = Speech(path2files_dir + '/' + file)
             test.append(speech)
+            count += 1
+            if (first is not None) and (count == first):
+                break
 
         test.get_wav_data(annotate=False)
         return test
+
+    def add_predicted_label(self, Y, le):
+        self.le = le
+        i_list = np.argmax(Y, axis=1)
+        list_ = list(self.le.inverse_transform(i_list))
+        
+        for i in range(len(self)):
+            self[i].predicted_label = list_[i]
+
+    def save_submission_csv(self, dir_, name):
+        files = []
+        labels = []
+        for speech in self:
+            i_last_slash = speech.file_path.rfind('/')
+            files.append(speech.file_path[i_last_slash+1:])
+            labels.append(speech.predicted_label)            
+        df = pd.DataFrame({'fname': files, 'label': labels})
+        
+        include = ['yes', 'no' , 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go']
+        df.loc[[(label not in include) for label in df['label']], 'label'] = 'unknown'
+        
+        save_as = '/'.join([dir_, name])
+        df.to_csv(save_as, index=False)
+        

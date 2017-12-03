@@ -14,9 +14,14 @@ class Speech():
         self.sample_rate = None
         self.data = None
         self.data_len = None
+        self.predicted_label = None
         
     def __str__(self):
-        return '{}, {}, sample rate {}, data length {}'.format(self.label, self.file_path, self.sample_rate, self.data_len)
+        output = '{}, {}, sample rate {}, data length {}'.format(self.label, self.file_path, self.sample_rate, self.data_len)
+        if self.predicted_label is not None:
+            output += '\n'
+            output += 'prediction: {}'.format(self.predicted_label)
+        return output
 
     def get_wav_data(self):
         self.sample_rate, self.data = wavfile.read(self.file_path)

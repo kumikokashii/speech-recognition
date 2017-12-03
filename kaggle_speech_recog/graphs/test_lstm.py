@@ -15,7 +15,7 @@ class TestLSTM(UsefulTFGraph):
         return tf.Variable(initial, name=name)
 
     def build(self, cnfg):
-        self.g_cnfg = cnfg
+        self.cnfg = cnfg
         with self.as_default():
             global_step = tf.Variable(0, trainable=False)
             self.keep_prob = tf.placeholder(tf.float32)
@@ -43,16 +43,27 @@ class TestLSTM(UsefulTFGraph):
             W2 = self.weight_variable([cnfg.n_hidden, cnfg.Y_vector_len], 0.015, 'W2')
             b2 = self.bias_variable(0.1, [cnfg.Y_vector_len], 'b2')
             self.logits = tf.matmul(X2, W2) + b2
+            
+            # Accuracy
+            correct_or_not = tf.cast(tf.equal(tf.argmax(self.Y, axis=1), tf.argmax(self.logits, axis=1)), tf.int32)
+            # 1 if correct, 0 if not
+            
+            self.accuracy = tf.reduce_mean(correct_or_not)
+            self.accuracy_batch_count = tf.reduce_sum(correct_or_not)
 
-            self.logloss_batch_sum = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(labels=self.Y, logits=self.logits))
-            self.logloss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.Y, logits=self.logits))
-
+            # Logloss
+            L = tf.nn.softmax_cross_entropy_with_logits(labels=self.Y, logits=self.logits)
+            self.logloss = tf.reduce_mean(L)
+            self.logloss_batch_sum = tf.reduce_sum(L)
+            
+            # Optimization
             learning_rate = tf.train.exponential_decay(cnfg.lr_initial, global_step, 
                                                        cnfg.lr_decay_steps, cnfg.lr_decay_rate, 
                                                        staircase=True)
 
             self.optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(self.logloss, global_step=global_step)
 
+            # Tensorboard
             tf.summary.scalar('logloss', self.logloss)
             tf.summary.scalar('learning_rate', learning_rate)
 
