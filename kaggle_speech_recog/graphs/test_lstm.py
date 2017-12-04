@@ -45,7 +45,7 @@ class TestLSTM(UsefulTFGraph):
             self.logits = tf.matmul(X2, W2) + b2
             
             # Accuracy
-            correct_or_not = tf.cast(tf.equal(tf.argmax(self.Y, axis=1), tf.argmax(self.logits, axis=1)), tf.int32)
+            correct_or_not = tf.cast(tf.equal(tf.argmax(self.Y, axis=1), tf.argmax(self.logits, axis=1)), tf.float32)
             # 1 if correct, 0 if not
             
             self.accuracy = tf.reduce_mean(correct_or_not)

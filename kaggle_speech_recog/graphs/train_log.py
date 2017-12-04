@@ -6,6 +6,9 @@ from ..bokeh4github import show
 from bokeh.models import NumeralTickFormatter, PrintfTickFormatter, Legend
 from bokeh.layouts import column
 
+color_red = '#ffb3ba'
+color_blue = '#bae1ff'
+color_grey = '#ededed'
 
 class Log():
     def __init__(self, log_dir, joined_name, graph_name, ckp_dir, tb_dir, g_cnfg, t_cnfg):
@@ -19,6 +22,7 @@ class Log():
         self.n_ave_ll_valid = t_cnfg.n_ave_ll_valid
 
         self.steps = []
+        self.epochs = []
         self.accu_train = []
         self.ll_train = []
         self.accu_valid = []
@@ -38,8 +42,9 @@ class Log():
     def save(self):
         pickle.dump(self, open(self.save_as, 'wb'))     
         
-    def record(self, step, accu_train, ll_train, accu_valid, ll_valid):
+    def record(self, step, epoch, accu_train, ll_train, accu_valid, ll_valid):
         self.steps.append(step)
+        self.epochs.append(epoch)
         self.accu_train.append(accu_train)
         self.ll_train.append(ll_train)
         self.accu_valid.append(accu_valid)
@@ -66,13 +71,24 @@ class Log():
         self.best_model_step = self.steps[-1]
         self.best_model_ll = self.ave_ll_valid[-1]
         self.best_model_patient_till = patient_till
-
+        
+    def add_ave_accu_valid(self):
+        n = self.t_cnfg.n_ave_ll_valid
+        
+        self.ave_accu_valid = []
+        for i in range(len(self.accu_valid)):
+            start = max(i-n+1, 0)
+            mini_accu_valid = self.accu_valid[start: i+1]
+            ave_accu_valid = sum(mini_accu_valid) / n
+            self.ave_accu_valid.append(ave_accu_valid)
+        
     def get_accuracy_graph(self):
         title = 'Accuracy: ' + ' > '.join([self.graph_name, self.g_cnfg.name, self.t_cnfg.name])
         p = figure(title=title, plot_width=1000, plot_height=400)
 
-        p_list = [['valid. accuracy', self.accu_valid, '#e1f7d5'],  # green
-                  ['train accuracy', self.accu_train, '#c9c9ff']]  # blue
+        p_list = [['average valid. accuracy', self.ave_accu_valid, color_red],
+                  ['valid. accuracy', self.accu_valid, color_blue],
+                  ['train accuracy', self.accu_train, color_grey]]
 
         for i in range(len(p_list)):
             name, array, color = p_list[i]
@@ -96,9 +112,9 @@ class Log():
         title = 'Logloss: ' + ' > '.join([self.graph_name, self.g_cnfg.name, self.t_cnfg.name])
         p = figure(title=title, plot_width=1000, plot_height=400)
 
-        p_list = [['average valid. logloss', self.ave_ll_valid, '#ffb3ba'],  # red
-                  ['valid. logloss', self.ll_valid, '#e1f7d5'],  # green
-                  ['train logloss', self.ll_train, '#c9c9ff']]  # blue
+        p_list = [['average valid. logloss', self.ave_ll_valid, color_red],
+                  ['valid. logloss', self.ll_valid, color_blue],
+                  ['train logloss', self.ll_train, color_grey]]
 
         for i in range(len(p_list)):
             name, array, color = p_list[i]

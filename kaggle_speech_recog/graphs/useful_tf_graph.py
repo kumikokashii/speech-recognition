@@ -39,8 +39,8 @@ class UsefulTFGraph(tf.Graph):
             self.saver_best = tf.train.Saver()  # Model saver for best models
 
             # Training loop
-            for step in range(0, cnfg.max_step):
-                if step == 0:  # Only first time
+            for step in range(1, cnfg.max_step):
+                if step == 1:  # Only first time
                     self.log.train_start = datetime.now()
                     print('='*60)
                     print(joined_name)
@@ -48,35 +48,38 @@ class UsefulTFGraph(tf.Graph):
                     print('Training starts @ {:%m/%d/%Y %H:%M:%S}'.format(self.log.train_start))
                     
                     self.offset = 0
+                    epoch = 0
                     self.last_hr_model_time = datetime.now()
                     self.patient_till = float('inf')
 
-                X_batch, Y_batch = self.get_next_batch()
+                if self.offset == 0:
+                    epoch += 1
+                X_batch, Y_batch = self.get_next_batch()  # self.offset gets incremented
                 
                 _, summary = self.sess.run([self.optimizer, self.summarizer], 
                                            feed_dict={self.X: X_batch, self.Y: Y_batch, 
                                                       self.keep_prob: cnfg.dropout_keep_prob, 
                                                       self.is_training: True})
                 
-                if step % cnfg.log_every == 0:  # Keep track of training progress
+                if (step == 1) or (self.offset == 0) or (step % cnfg.log_every == 0):  # Keep track of training progress
                     accu_train, ll_train = self.sess.run([self.accuracy, self.logloss], 
                                                          feed_dict={self.X: X_batch, self.Y: Y_batch, 
                                                                     self.keep_prob: 1.0, self.is_training: False})
                     accu_valid, ll_valid = self.get_accu_ll_valid()  # Split into batches to avoid running out of resource
                     
-                    self.save_basics(step, accu_train, ll_train, accu_valid, ll_valid, summary)
+                    self.save_basics(step, epoch, accu_train, ll_train, accu_valid, ll_valid, summary)
                     self.ave_ll_valid = self.log.ave_ll_valid[-1]
                     
-                    self.make_ckp_if_hour_passed(step)
-                    self.make_ckp_if_best(step)
+                    self.make_ckp_if_hour_passed(epoch, step)
+                    self.make_ckp_if_best(epoch, step)
                     
                     # Done if patience is over
                     if (step > cnfg.start_step_early_stopping) & (self.ave_ll_valid > self.patient_till):
                         print('Early stopping now')
                         break
 
-                if (annotate) & (step % cnfg.print_every == 0):
-                    print('Step {:,} ends @ {:%m/%d/%Y %H:%M:%S} [Train] {:.3f}, {:.1f}% [Valid] {:.1f}% [Ave valid] {:.3f}'.format(step, datetime.now(), ll_train, accu_train*100, accu_valid*100, self.ave_ll_valid))
+                if (annotate) and ((step == 1) or (step % cnfg.print_every == 0)):
+                    print('Epoch {:,} Step {:,} ends @ {:%m/%d/%Y %H:%M:%S} [Train] {:.3f}, {:.1f}% [Valid] {:.1f}% [Ave valid] {:.3f}'.format(epoch, step, datetime.now(), ll_train, accu_train*100, accu_valid*100, self.ave_ll_valid))
 
             # The End
             log.train_end = datetime.now()
@@ -95,16 +98,23 @@ class UsefulTFGraph(tf.Graph):
             saver = tf.train.Saver()
             saver.restore(sess, path2ckp)  # Load model
 
-            offset = 0
             Y_test = np.empty([len_X_test, self.cnfg.Y_vector_len])
+            offset = 0
+            done_check = 15000
+            
+            print('Predicting starts @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
             while (offset < len_X_test):
                 X_batch = X_test[offset: offset+batch_size, :]
                 Y_batch = self.logits.eval(feed_dict={self.X: X_batch, 
                                                       self.keep_prob: 1.0,
                                                       self.is_training: False})
-                
                 Y_test[offset: offset+batch_size, :] = Y_batch
+                
                 offset += batch_size
+                if done_check <= offset:
+                    print('{:,} datapoints completed at {:%m/%d/%Y %H:%M:%S}'.format(offset, datetime.now()))
+                    done_check += 15000             
+            print('Predicting ends @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
 
         return Y_test
             
@@ -140,9 +150,8 @@ class UsefulTFGraph(tf.Graph):
         X_batch = self.X_train[self.offset: self.offset+self.batch_size, :]
         Y_batch = self.Y_train[self.offset: self.offset+self.batch_size, :]
         
-        if self.offset <= (self.len_X_train - self.batch_size):  # Enough for next batch
-            self.offset += self.batch_size
-        else:  # Reached epoch end
+        self.offset += self.batch_size  # For next round
+        if self.offset >= self.len_X_train:
             self.offset = 0
         
         return X_batch, Y_batch
@@ -166,17 +175,17 @@ class UsefulTFGraph(tf.Graph):
         ll_valid = sum_ll_valid / self.len_X_valid
         return accu_valid, ll_valid
     
-    def save_basics(self, step, accu_train, ll_train, accu_valid, ll_valid, summary):
-        self.log.record(step, accu_train, ll_train, accu_valid, ll_valid)  # Log file
+    def save_basics(self, step, epoch, accu_train, ll_train, accu_valid, ll_valid, summary):
+        self.log.record(step, epoch, accu_train, ll_train, accu_valid, ll_valid)  # Log file
         self.log.save()
         self.writer.add_summary(summary, step)  # Tensorboard
         
     def make_ckp(self, saver, sub_dir, step):
         path_ckp = saver.save(self.sess, '/'.join([self.ckp_dir, sub_dir, 'model']), 
-                              global_step=step, latest_filename=sub_dir+'_checkpoint') 
+                              global_step=step, latest_filename='_'.join([sub_dir, 'checkpoint'])) 
         return path_ckp
         
-    def make_ckp_if_hour_passed(self, step):
+    def make_ckp_if_hour_passed(self, epoch, step):
         if datetime.now() <= self.last_hr_model_time + timedelta(hours=1):
             return
         
@@ -184,9 +193,9 @@ class UsefulTFGraph(tf.Graph):
         self.last_hr_model_time = datetime.now()
         
         if self.annotate:
-            print('step {:,} Hourly model saved @ {:%m/%d/%Y %H:%M:%S}'.format(step, datetime.now()))
+            print('Epoch {:,} Step {:,} Hourly model saved @ {:%m/%d/%Y %H:%M:%S}'.format(epoch, step, datetime.now()))
 
-    def make_ckp_if_best(self, step):
+    def make_ckp_if_best(self, epoch, step):
         if self.ave_ll_valid > self.log.best_model_ll:
             return
         
@@ -195,5 +204,5 @@ class UsefulTFGraph(tf.Graph):
         self.log.update_best_model(self.patient_till)
         
         if self.annotate:
-            print('Step {:,} Best model saved @ {:%m/%d/%Y %H:%M:%S} [Ave valid ll] {:.3f}'.format(step, datetime.now(), self.ave_ll_valid))
+            print('Epoch {:,} Step {:,} Best model saved @ {:%m/%d/%Y %H:%M:%S} [Ave valid] {:.3f}'.format(epoch, step, datetime.now(), self.ave_ll_valid))
         
