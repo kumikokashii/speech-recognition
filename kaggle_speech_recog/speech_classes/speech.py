@@ -52,5 +52,9 @@ class Speech():
         
         return self.data[: vector_len]  # Trim the end
 
-    def set_spectrogram(self):
-        self.spec_f, self.spec_t, self.spec_data = spectrogram(self.data, fs=self.sample_rate)
+    def set_spectrogram(self, vector_len, take_log=False):
+        self.spec_f, self.spec_t, self.spec_data = spectrogram(self.get_data_array_of_length(vector_len), 
+                                                               fs=self.sample_rate)
+        if take_log:
+            self.spec_data = np.log(self.spec_data+1e-10)  # 1e-10 to avoid divide by zero
+            

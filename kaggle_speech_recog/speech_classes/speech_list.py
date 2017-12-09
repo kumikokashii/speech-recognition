@@ -175,6 +175,23 @@ class SpeechList(list):
         
         X1, X2, Y1, Y2 = train_test_split(X, Y, test_size=(1-split), random_state=0)
         return X1, Y1, X2, Y2
+
+    def get_spectrogram_feature_ndarray(self, vector_len, take_log):
+        list_ = []
+        for speech in self:
+            speech.set_spectrogram(vector_len, take_log)
+            list_.append(speech.spec_data)
+        return np.array(list_)    
+    
+    def get_spectrogram_X_and_Y(self, X_vector_len, take_log=False, split=None):
+        X = self.get_spectrogram_feature_ndarray(X_vector_len, take_log)
+        Y = self.get_label_matrix()
+        
+        if split is None:
+            return X, Y
+        
+        X1, X2, Y1, Y2 = train_test_split(X, Y, test_size=(1-split), random_state=0)
+        return X1, Y1, X2, Y2
     
     def get_train(path2files_dir):  # Static
         train = SpeechList(name='Train')
