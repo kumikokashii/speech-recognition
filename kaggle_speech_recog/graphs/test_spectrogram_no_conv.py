@@ -1,8 +1,7 @@
 from .useful_tf_graph import *
 import tensorflow as tf
-import math
 
-class TestSpectrogramConv(UsefulTFGraph):
+class TestSpectrogramNoConv(UsefulTFGraph):
     def __init__(self, g_cnfg):
         super().__init__()
         self.build(g_cnfg)
@@ -25,25 +24,8 @@ class TestSpectrogramConv(UsefulTFGraph):
             self.X = tf.placeholder(tf.float32, [None, cnfg.X_img_h, cnfg.X_img_w])
             self.Y = tf.placeholder(tf.float32, [None, cnfg.Y_vector_len])
             
-            X_conv1 = tf.layers.conv2d(inputs=tf.reshape(self.X, [-1, cnfg.X_img_h, cnfg.X_img_w, 1]),
-                                       filters=cnfg.conv1_n_filters,
-                                       kernel_size=cnfg.conv1_kernel_size,
-                                       padding='same',
-                                       activation=tf.nn.relu,
-                                       name='conv1')
-            
-            X_pool1 = tf.layers.max_pooling2d(inputs=X_conv1,
-                                              pool_size=cnfg.conv1_mp_size,
-                                              strides=cnfg.conv1_mp_strides,
-                                              padding='same',
-                                              name='mp1')
-            
-            X_pool1_h = math.ceil(cnfg.X_img_h / cnfg.conv1_mp_strides)
-            X_pool1_w = math.ceil(cnfg.X_img_w / cnfg.conv1_mp_strides)
-            n_flat = X_pool1_h * X_pool1_w * cnfg.conv1_n_filters
-            
-            X1 = tf.reshape(X_pool1, [-1, n_flat])
-            W1 = self.weight_variable([n_flat, cnfg.n_hidden], 0.015, 'W1')
+            X1 = tf.reshape(self.X, [-1, cnfg.X_img_h*cnfg.X_img_w])
+            W1 = self.weight_variable([cnfg.X_img_h*cnfg.X_img_w, cnfg.n_hidden], 0.015, 'W1')
             b1 = self.bias_variable(0.1, [cnfg.n_hidden], 'b1')
             XW1 = tf.matmul(X1, W1) + b1
             X2 = tf.nn.relu(XW1)
