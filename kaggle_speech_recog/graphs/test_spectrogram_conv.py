@@ -24,8 +24,13 @@ class TestSpectrogramConv(UsefulTFGraph):
 
             self.X = tf.placeholder(tf.float32, [None, cnfg.X_img_h, cnfg.X_img_w])
             self.Y = tf.placeholder(tf.float32, [None, cnfg.Y_vector_len])
+                    
+            X_bn1 = tf.contrib.layers.batch_norm(inputs=tf.reshape(self.X, [-1, cnfg.X_img_h, cnfg.X_img_w, 1]),
+                                                 updates_collections=None,
+                                                 is_training=self.is_training,
+                                                 scope='bn1')
             
-            X_conv1 = tf.layers.conv2d(inputs=tf.reshape(self.X, [-1, cnfg.X_img_h, cnfg.X_img_w, 1]),
+            X_conv1 = tf.layers.conv2d(inputs=X_bn1,
                                        filters=cnfg.conv1_n_filters,
                                        kernel_size=cnfg.conv1_kernel_size,
                                        padding='same',
