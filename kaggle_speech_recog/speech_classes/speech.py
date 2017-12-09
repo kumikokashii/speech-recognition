@@ -1,6 +1,7 @@
 from scipy.io import wavfile
 import IPython.display as ipd
 import numpy as np
+from scipy.signal import spectrogram
 
 from bokeh.plotting import figure, show
 from ..bokeh4github import show
@@ -50,3 +51,6 @@ class Speech():
             return output
         
         return self.data[: vector_len]  # Trim the end
+
+    def set_spectrogram(self):
+        self.spec_f, self.spec_t, self.spec_data = spectrogram(self.data, fs=self.sample_rate)
