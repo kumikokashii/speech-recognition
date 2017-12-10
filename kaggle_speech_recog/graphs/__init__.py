@@ -8,3 +8,4 @@ from .test_spectrogram_conv import *
 from .test_spectrogram_2_conv import *
 
 from .spectrogram_conv import *
+from .spectrogram_2_conv import *

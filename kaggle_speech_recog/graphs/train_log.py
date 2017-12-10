@@ -7,10 +7,10 @@ from ..bokeh4github import show
 from bokeh.models import NumeralTickFormatter, PrintfTickFormatter, Span, Legend
 from bokeh.layouts import column
 
-color_red = '#ffb3ba'
-color_blue = '#bae1ff'
-color_grey = '#ededed'
-color_pink = '#ffeff1'
+color_ave_valid = '#66b266'
+color_valid = '#b2d8b2'
+color_train = '#ededed'
+color_ver = '#ffdb94'
 
 color_list = ['#FD367E', '#ffc04c', '#3F6699', '#B0DEDB', '#af9880']  # dark pink, orange, blue, light green, light brown
 color_tint = ['#fed6e5', '#fff2db', '#d8e0ea', '#eff8f7', '#efeae5']
@@ -91,20 +91,20 @@ class Log():
         title = 'Accuracy: ' + ' > '.join([self.graph_name, self.g_cnfg.name, self.t_cnfg.name])
         p = figure(title=title, plot_width=1000, plot_height=400)
 
-        p_list = [['average valid. accuracy', self.ave_accu_valid, color_red],
-                  ['valid. accuracy', self.accu_valid, color_blue],
-                  ['train accuracy', self.accu_train, color_grey]]
+        p_list = [['train accuracy', self.accu_train, 'solid', color_train],
+                  ['valid. accuracy', self.accu_valid, 'dotdash', color_valid],
+                  ['average valid. accuracy', self.ave_accu_valid, 'solid', color_ave_valid]]
 
         for i in range(len(p_list)):
-            name, array, color = p_list[i]
-            line = p.line(self.steps, array, line_width=3, color=color)
+            name, array, dash, color = p_list[i]
+            line = p.line(self.steps, array, line_dash=dash, line_width=3, color=color)
             p_list[i].append(line)
 
-            if i == 0:
+            if i == 2:
                 # Add vertical dotted line at max accuracy
                 i_max = np.argmax(array)
                 max_line = Span(location=self.steps[i_max], dimension='height',
-                                line_dash='dashed', line_width=3, line_color=color_pink)
+                                line_dash='dashed', line_width=3, line_color=color_ver)
                 p.add_layout(max_line)            
             
         p.xaxis.axis_label = 'steps'
@@ -112,7 +112,7 @@ class Log():
         p.xaxis.formatter = NumeralTickFormatter(format='0,000')
         p.yaxis.formatter = NumeralTickFormatter(format='0.00%')
 
-        legend = Legend(items=[(name, [line]) for name, array, color, line in p_list],
+        legend = Legend(items=[(name, [line]) for name, array, dash, color, line in p_list],
                         location='top_left',
                         orientation='vertical',
                         click_policy='hide')
@@ -124,20 +124,20 @@ class Log():
         title = 'Logloss: ' + ' > '.join([self.graph_name, self.g_cnfg.name, self.t_cnfg.name])
         p = figure(title=title, plot_width=1000, plot_height=400)
 
-        p_list = [['average valid. logloss', self.ave_ll_valid, color_red],
-                  ['valid. logloss', self.ll_valid, color_blue],
-                  ['train logloss', self.ll_train, color_grey]]
+        p_list = [['train logloss', self.ll_train, 'solid', color_train],
+                  ['valid. logloss', self.ll_valid, 'dotdash', color_valid],
+                  ['average valid. logloss', self.ave_ll_valid, 'solid', color_ave_valid]]
 
         for i in range(len(p_list)):
-            name, array, color = p_list[i]
-            line = p.line(self.steps, array, line_width=3, color=color)
+            name, array, dash, color = p_list[i]
+            line = p.line(self.steps, array, line_dash=dash, line_width=3, color=color)
             p_list[i].append(line)
             
-            if i == 0:
+            if i == 2:
                 # Add vertical dotted line at min logloss
                 i_min = np.argmin(array)
                 min_line = Span(location=self.steps[i_min], dimension='height',
-                                line_dash='dashed', line_width=3, line_color=color_pink)
+                                line_dash='dashed', line_width=3, line_color=color_ver)
                 p.add_layout(min_line)
 
         p.xaxis.axis_label = 'steps'
@@ -145,7 +145,7 @@ class Log():
         p.xaxis.formatter = NumeralTickFormatter(format='0,000')
         p.yaxis.formatter = PrintfTickFormatter(format='%.3f')
 
-        legend = Legend(items=[(name, [line]) for name, array, color, line in p_list],
+        legend = Legend(items=[(name, [line]) for name, array, dash, color, line in p_list],
                         location='top_right',
                         orientation='vertical',
                         click_policy='hide')
