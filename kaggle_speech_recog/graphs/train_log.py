@@ -101,7 +101,7 @@ class Log():
             p_list[i].append(line)
 
             if i == 2:
-                # Add vertical dotted line at max accuracy
+                # Add vertical line at max accuracy
                 i_max = np.argmax(array)
                 max_line = Span(location=self.steps[i_max], dimension='height',
                                 line_dash='dashed', line_width=3, line_color=color_ver)
@@ -134,7 +134,7 @@ class Log():
             p_list[i].append(line)
             
             if i == 2:
-                # Add vertical dotted line at min logloss
+                # Add vertical line at min logloss
                 i_min = np.argmin(array)
                 min_line = Span(location=self.steps[i_min], dimension='height',
                                 line_dash='dashed', line_width=3, line_color=color_ver)
@@ -216,7 +216,7 @@ class Log():
             line = p.line(epochs, ave_accu_valid, line_width=3, color=color_list[i_color])
             legend_items.append((name, [line]))
             
-            # Add vertical dotted line at max accuracy
+            # Add vertical line at max accuracy
             i_max = np.argmax(ave_accu_valid)
             max_line = Span(location=epochs[i_max], dimension='height',
                             line_dash='dashed', line_width=3, line_color=color_tint[i_color])
@@ -250,7 +250,7 @@ class Log():
             line = p.line(epochs, ave_ll_valid, line_width=3, color=color_list[i_color])
             legend_items.append((name, [line]))
             
-            # Add vertical dotted line at min logloss
+            # Add vertical line at min logloss
             i_min = np.argmin(ave_ll_valid)
             min_line = Span(location=epochs[i_min], dimension='height',
                             line_dash='dashed', line_width=3, line_color=color_tint[i_color])
