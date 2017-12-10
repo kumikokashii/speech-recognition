@@ -1,14 +1,19 @@
 import pickle
 from datetime import datetime
+import numpy as np
 
 from bokeh.plotting import figure, show
 from ..bokeh4github import show
-from bokeh.models import NumeralTickFormatter, PrintfTickFormatter, Legend
+from bokeh.models import NumeralTickFormatter, PrintfTickFormatter, Span, Legend
 from bokeh.layouts import column
 
 color_red = '#ffb3ba'
 color_blue = '#bae1ff'
 color_grey = '#ededed'
+color_pink = '#ffeff1'
+
+color_list = ['#FD367E', '#ffc04c', '#3F6699', '#B0DEDB', '#af9880']  # dark pink, orange, blue, light green, light brown
+color_tint = ['#fed6e5', '#fff2db', '#d8e0ea', '#eff8f7', '#efeae5']
 
 class Log():
     def __init__(self, log_dir, joined_name, graph_name, ckp_dir, tb_dir, g_cnfg, t_cnfg):
@@ -95,6 +100,13 @@ class Log():
             line = p.line(self.steps, array, line_width=3, color=color)
             p_list[i].append(line)
 
+            if i == 0:
+                # Add vertical dotted line at max accuracy
+                i_max = np.argmax(array)
+                max_line = Span(location=self.steps[i_max], dimension='height',
+                                line_dash='dashed', line_width=3, line_color=color_pink)
+                p.add_layout(max_line)            
+            
         p.xaxis.axis_label = 'steps'
         p.yaxis.axis_label = 'accuracy'
         p.xaxis.formatter = NumeralTickFormatter(format='0,000')
@@ -120,6 +132,13 @@ class Log():
             name, array, color = p_list[i]
             line = p.line(self.steps, array, line_width=3, color=color)
             p_list[i].append(line)
+            
+            if i == 0:
+                # Add vertical dotted line at min logloss
+                i_min = np.argmin(array)
+                min_line = Span(location=self.steps[i_min], dimension='height',
+                                line_dash='dashed', line_width=3, line_color=color_pink)
+                p.add_layout(min_line)
 
         p.xaxis.axis_label = 'steps'
         p.yaxis.axis_label = 'logloss'
@@ -150,3 +169,105 @@ class Log():
         if logloss:
             show(self.get_logloss_graph())
             return
+
+    def get_epoch_summary(self):
+        self.add_ave_accu_valid()
+        
+        epochs = []
+        ave_accu_valid = []
+        ave_ll_valid = []
+        
+        current_epoch = 1
+        for i in range(len(self.epochs)):
+            if current_epoch < self.epochs[i]:
+                epochs.append(current_epoch)
+                ave_accu_valid.append(self.ave_accu_valid[i-1])
+                ave_ll_valid.append(self.ave_ll_valid[i-1])
+                current_epoch += 1
+                
+        return epochs, ave_accu_valid, ave_ll_valid
+    
+    def compare(path2logs, accuracy=True, logloss=True):  # Static
+        if accuracy and logloss:
+            accuracy_graph = Log.get_accuracy_compare(path2logs)
+            logloss_graph = Log.get_logloss_compare(path2logs)
+
+            p = column(accuracy_graph, logloss_graph)
+            show(p)
+            return
+
+        if accuracy:
+            show(Log.get_accuracy_compare(path2logs))
+            return
+
+        if logloss:
+            show(Log.get_logloss_compare(path2logs))
+            return    
+
+    def get_accuracy_compare(path2logs):  # Static
+        p = figure(title='Compare Accuracy', plot_width=1000, plot_height=400)
+        legend_items = []
+
+        i_color = 0
+        for path2log in path2logs:
+            log = pickle.load(open(path2log, 'rb'))
+            epochs, ave_accu_valid, ave_ll_valid = log.get_epoch_summary()
+            name = ' > '.join([log.graph_name, log.g_cnfg.name, log.t_cnfg.name])
+            line = p.line(epochs, ave_accu_valid, line_width=3, color=color_list[i_color])
+            legend_items.append((name, [line]))
+            
+            # Add vertical dotted line at max accuracy
+            i_max = np.argmax(ave_accu_valid)
+            max_line = Span(location=epochs[i_max], dimension='height',
+                            line_dash='dashed', line_width=3, line_color=color_tint[i_color])
+            p.add_layout(max_line)
+
+            # Next colors            
+            i_color = (i_color + 1) % len(color_list)
+
+        p.xaxis.axis_label = 'epochs'
+        p.yaxis.axis_label = 'accuracy'
+        p.xaxis.formatter = NumeralTickFormatter(format='0,000')
+        p.yaxis.formatter = NumeralTickFormatter(format='0.00%')
+
+        legend = Legend(items=legend_items,
+                        location='bottom_right',
+                        orientation='vertical',
+                        click_policy='hide')
+        p.add_layout(legend)
+
+        return p
+
+    def get_logloss_compare(path2logs):  # Static
+        p = figure(title='Compare Logloss', plot_width=1000, plot_height=400)
+        legend_items = []
+
+        i_color = 0
+        for path2log in path2logs:
+            log = pickle.load(open(path2log, 'rb'))
+            epochs, ave_accu_valid, ave_ll_valid = log.get_epoch_summary()
+            name = ' > '.join([log.graph_name, log.g_cnfg.name, log.t_cnfg.name])
+            line = p.line(epochs, ave_ll_valid, line_width=3, color=color_list[i_color])
+            legend_items.append((name, [line]))
+            
+            # Add vertical dotted line at min logloss
+            i_min = np.argmin(ave_ll_valid)
+            min_line = Span(location=epochs[i_min], dimension='height',
+                            line_dash='dashed', line_width=3, line_color=color_tint[i_color])
+            p.add_layout(min_line)
+
+            # Next colors
+            i_color = (i_color + 1) % len(color_list)
+
+        p.xaxis.axis_label = 'epochs'
+        p.yaxis.axis_label = 'logloss'
+        p.xaxis.formatter = NumeralTickFormatter(format='0,000')
+        p.yaxis.formatter = PrintfTickFormatter(format='%.3f')
+
+        legend = Legend(items=legend_items,
+                        location='top_right',
+                        orientation='vertical',
+                        click_policy='hide')
+        p.add_layout(legend)
+
+        return p

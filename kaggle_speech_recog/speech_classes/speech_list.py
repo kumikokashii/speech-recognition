@@ -238,7 +238,8 @@ class SpeechList(list):
             labels.append(speech.predicted_label)            
         df = pd.DataFrame({'fname': files, 'label': labels})
         
-        include = ['yes', 'no' , 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go']
+        df.loc[df['label'] == '_background_noise_', 'label'] = 'silence'
+        include = ['yes', 'no' , 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go', 'silence']
         df.loc[[(label not in include) for label in df['label']], 'label'] = 'unknown'
         
         save_as = '/'.join([dir_, name])
