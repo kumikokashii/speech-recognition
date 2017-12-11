@@ -113,7 +113,7 @@ class Log():
         p.yaxis.formatter = NumeralTickFormatter(format='0.00%')
 
         legend = Legend(items=[(name, [line]) for name, array, dash, color, line in p_list],
-                        location='top_left',
+                        location='bottom_right',
                         orientation='vertical',
                         click_policy='hide')
         p.add_layout(legend)
