@@ -3,6 +3,8 @@ from .train_log import *
 
 from .useful_tf_graph import *
 
+from .spectrogram_concat_conv_lstm import *
+from .spectrogram_bn_multi_lstm import *
 from .spectrogram_multi_lstm import *
 from .spectrogram_lstm_dropout import *
 from .spectrogram_lstm import *
