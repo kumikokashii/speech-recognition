@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 from .speech import *
 import os
 import pandas as pd
+from copy import deepcopy
 
         
 class SpeechList(list):
@@ -181,9 +182,27 @@ class SpeechList(list):
         for speech in self:
             speech.set_spectrogram(vector_len, spec_v, take_log)
             list_.append(speech.spec_data)
-        return np.array(list_)    
+        return np.array(list_)
     
-    def get_spectrogram_X_and_Y(self, X_vector_len, spec_v=None, take_log=False, split=None):
+    def split_noise(self, vector_len):
+        orig_list = self.copy()  # Copy of original list
+        self.clear()  # Empty list
+        for speech in orig_list:
+            if speech.label != '_background_noise_':
+                self.append(speech)
+                continue
+                
+            offset = 0
+            while (offset < speech.data_len):
+                new_speech = deepcopy(speech)
+                new_speech.data = speech.data[offset: offset+vector_len]
+                new_speech.data_len = len(new_speech.data)
+                self.append(new_speech)
+                offset += vector_len
+    
+    def get_spectrogram_X_and_Y(self, X_vector_len, split_noise=False, spec_v=None, take_log=False, split=None):
+        if split_noise:
+            self.split_noise(X_vector_len)
         X = self.get_spectrogram_feature_ndarray(X_vector_len, spec_v, take_log)
         Y = self.get_label_matrix()
         
