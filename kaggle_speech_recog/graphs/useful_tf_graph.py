@@ -55,6 +55,8 @@ class UsefulTFGraph(tf.Graph):
                 if self.offset == 0:
                     epoch += 1
                 X_batch, Y_batch = self.get_next_batch()  # self.offset gets incremented
+                if hasattr(cnfg, 'add_noise'):
+                    X_batch = self.add_noise(X_batch, *cnfg.add_noise)
                 
                 _, summary = self.sess.run([self.optimizer, self.summarizer], 
                                            feed_dict={self.X: X_batch, self.Y: Y_batch, 
@@ -155,6 +157,20 @@ class UsefulTFGraph(tf.Graph):
             self.offset = 0
         
         return X_batch, Y_batch
+    
+    def add_noise(self, X, noise_p, noise_X_list):
+        X = np.copy(X)
+        n = int(len(X)*noise_p)
+        
+        i_X_list = np.random.choice(len(X), n, replace=False)
+        i_noise_X_list = np.random.choice(len(noise_X_list), n)
+        
+        for j in range(n):
+            i_X = i_X_list[j]
+            i_noise_X = i_noise_X_list[j]
+            X[i_X] = X[i_X] + noise_X_list[i_noise_X]
+
+        return X
 
     def get_accu_ll_valid(self):
         offset = 0

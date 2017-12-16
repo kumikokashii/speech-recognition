@@ -199,13 +199,34 @@ class SpeechList(list):
                 new_speech.data_len = len(new_speech.data)
                 self.append(new_speech)
                 offset += vector_len
+                
+    def fabricate_noise(self, n, vector_len):
+        noise_speech_list = self.get_list_of_label('_background_noise_')
+        n_noise_speech = len(noise_speech_list)       
+        
+        for i in range(n):
+            i1, i2 = np.random.choice(n_noise_speech, 2)
+            s1_data = noise_speech_list[i1].get_data_array_of_length(vector_len)
+            s2_data = noise_speech_list[i2].get_data_array_of_length(vector_len)
+            ratio = np.random.choice(101, 1) / 100
+
+            new_noise_speech = deepcopy(noise_speech_list[0])
+            new_noise_speech.file_path = None 
+            new_noise_speech.data = (s1_data*ratio) + (s2_data*(1-ratio))
+            new_noise_speech.data_len = vector_len
+            self.append(new_noise_speech)        
     
-    def get_spectrogram_X_and_Y(self, X_vector_len, split_noise=False, spec_v=None, take_log=False, split=None):
+    def get_spectrogram_X_and_Y(self, X_vector_len, split_noise=False, n_fabricate_noise=0,
+                                spec_v=None, take_log=False, split=None):
         if split_noise:
             self.split_noise(X_vector_len)
-        X = self.get_spectrogram_feature_ndarray(X_vector_len, spec_v, take_log)
-        Y = self.get_label_matrix()
         
+        if n_fabricate_noise > 0:
+            self.fabricate_noise(n_fabricate_noise, X_vector_len)
+
+        X = self.get_spectrogram_feature_ndarray(X_vector_len, spec_v, take_log)
+        Y = self.get_label_matrix()            
+            
         if split is None:
             return X, Y
         

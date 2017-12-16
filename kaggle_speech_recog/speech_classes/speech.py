@@ -2,6 +2,7 @@ from scipy.io import wavfile
 import IPython.display as ipd
 import numpy as np
 from scipy.signal import spectrogram
+import librosa
 
 from bokeh.plotting import figure, show
 from ..bokeh4github import show
@@ -53,16 +54,22 @@ class Speech():
         return self.data[: vector_len]  # Trim the end
 
     def set_spectrogram(self, vector_len, spec_v=None, take_log=False):
-        if spec_v is None:
+        if spec_v is None:  # default
             self.spec_f, self.spec_t, self.spec_data = spectrogram(self.get_data_array_of_length(vector_len), 
                                                                    fs=self.sample_rate)
-        elif spec_v == '2':   
+        elif spec_v == '2':  # custom
             len_one_seq = 390
             len_overlap = 240
             self.spec_f, self.spec_t, self.spec_data = spectrogram(self.get_data_array_of_length(vector_len), 
                                                                    fs=self.sample_rate,
                                                                    window='hann', nperseg=len_one_seq, noverlap=len_overlap,
-                                                                   detrend=False, scaling='spectrum')            
+                                                                   detrend=False, scaling='spectrum')
+        elif spec_v == '3':  # mel power
+            _, _, spec = spectrogram(self.get_data_array_of_length(vector_len), 
+                                     fs=self.sample_rate)
+            melspec = librosa.feature.melspectrogram(S=spec, n_mels=128)  # default n_mel=128. typically 40.
+            self.spec_data = librosa.power_to_db(melspec, ref=np.max)            
+            
         if take_log:
             self.spec_data = np.log(self.spec_data+1e-10)  # 1e-10 to avoid divide by zero
             

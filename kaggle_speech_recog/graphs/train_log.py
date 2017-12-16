@@ -187,24 +187,24 @@ class Log():
                 
         return epochs, ave_accu_valid, ave_ll_valid
     
-    def compare(path2logs, accuracy=True, logloss=True):  # Static
+    def compare(path2logs, max_epoch=None, accuracy=True, logloss=True):  # Static
         if accuracy and logloss:
-            accuracy_graph = Log.get_accuracy_compare(path2logs)
-            logloss_graph = Log.get_logloss_compare(path2logs)
+            accuracy_graph = Log.get_accuracy_compare(path2logs, max_epoch)
+            logloss_graph = Log.get_logloss_compare(path2logs, max_epoch)
 
             p = column(accuracy_graph, logloss_graph)
             show(p)
             return
 
         if accuracy:
-            show(Log.get_accuracy_compare(path2logs))
+            show(Log.get_accuracy_compare(path2logs, max_epoch))
             return
 
         if logloss:
-            show(Log.get_logloss_compare(path2logs))
+            show(Log.get_logloss_compare(path2logs, max_epoch))
             return    
 
-    def get_accuracy_compare(path2logs):  # Static
+    def get_accuracy_compare(path2logs, max_epoch=None):  # Static
         p = figure(title='Compare Accuracy', plot_width=1000, plot_height=400)
         legend_items = []
 
@@ -212,6 +212,10 @@ class Log():
         for path2log in path2logs:
             log = pickle.load(open(path2log, 'rb'))
             epochs, ave_accu_valid, ave_ll_valid = log.get_epoch_summary()
+            if (max_epoch is not None) and (len(epochs) > max_epoch):
+                epochs = epochs[: max_epoch]
+                ave_accu_valid = ave_accu_valid[: max_epoch]
+                ave_ll_valid = ave_ll_valid[: max_epoch]
             name = ' > '.join([log.graph_name, log.g_cnfg.name, log.t_cnfg.name])
             line = p.line(epochs, ave_accu_valid, line_width=3, color=color_list[i_color])
             legend_items.append((name, [line]))
@@ -238,7 +242,7 @@ class Log():
 
         return p
 
-    def get_logloss_compare(path2logs):  # Static
+    def get_logloss_compare(path2logs, max_epoch=None):  # Static
         p = figure(title='Compare Logloss', plot_width=1000, plot_height=400)
         legend_items = []
 
@@ -246,6 +250,10 @@ class Log():
         for path2log in path2logs:
             log = pickle.load(open(path2log, 'rb'))
             epochs, ave_accu_valid, ave_ll_valid = log.get_epoch_summary()
+            if (max_epoch is not None) and (len(epochs) > max_epoch):
+                epochs = epochs[: max_epoch]
+                ave_accu_valid = ave_accu_valid[: max_epoch]
+                ave_ll_valid = ave_ll_valid[: max_epoch]            
             name = ' > '.join([log.graph_name, log.g_cnfg.name, log.t_cnfg.name])
             line = p.line(epochs, ave_ll_valid, line_width=3, color=color_list[i_color])
             legend_items.append((name, [line]))

@@ -11,6 +11,9 @@ class Config():
         output = ''
         for key in sorted_attr:
             value = self.__dict__[key]
+            if key == 'add_noise':  # Avoid printing a list of numpy arrays
+                value = (value[0], 'list of length {:,}'.format(len(value[1])))
+            
             if isinstance(value, int):
                 output += '{}: {:,}'.format(key, value)
             else:
