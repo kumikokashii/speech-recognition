@@ -79,7 +79,7 @@ class SpeechList(list):
             self.remove(speech)
     
     def get_list_of_label(self, label):
-        list_ = []
+        list_ = SpeechList(name=label)
         for speech in self:
             if speech.label == label:
                 list_.append(speech)
@@ -284,4 +284,5 @@ class SpeechList(list):
         
         save_as = '/'.join([dir_, name])
         df.to_csv(save_as, index=False)
+        
         
