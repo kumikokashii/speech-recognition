@@ -1,7 +1,7 @@
 from .useful_tf_graph import *
 import tensorflow as tf
 
-class SpectrogramMultiLSTMRandomInputModify(UsefulTFGraph):
+class NoveltyDetectionSpectrogramMultiLSTMRandomInputModify(UsefulTFGraph):
     def __init__(self, g_cnfg):
         super().__init__()
         self.build(g_cnfg)
@@ -77,7 +77,7 @@ class SpectrogramMultiLSTMRandomInputModify(UsefulTFGraph):
             self.is_training = tf.placeholder(tf.bool)
 
             self.X = tf.placeholder(tf.float32, [None, cnfg.X_img_h, cnfg.X_img_w])
-            self.Y = tf.placeholder(tf.float32, [None, cnfg.Y_vector_len])
+            self.Y = tf.placeholder(tf.float32, [None, 1])
             
             self.X = tf.cond(self.is_training,
                              lambda: self.batch_random_modify(self.X, *cnfg.random_modify_args), 
@@ -123,21 +123,27 @@ class SpectrogramMultiLSTMRandomInputModify(UsefulTFGraph):
 
             with tf.variable_scope('flat3'):
                 self.logits = self.apply_bn_dr_XWplusb(X=X3, is_training=self.is_training, dr_keep_prob=self.keep_prob,
-                                                       W_shape=[cnfg.n_hidden2, cnfg.Y_vector_len], W_stddev=0.015,
-                                                       b_shape=[cnfg.Y_vector_len], b_value=0.1,
-                                                       skip_relu=True)                
+                                                       W_shape=[cnfg.n_hidden2, 1], W_stddev=0.015,
+                                                       b_shape=[1], b_value=0.1,
+                                                       skip_relu=True)
                 
+            self.sigmoid = tf.sigmoid(self.logits)
+
+            # Logloss
+            L = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.Y, logits=self.logits)
+            self.logloss = tf.reduce_mean(L)
+            self.logloss_batch_sum = tf.reduce_sum(L)
+             
             # Accuracy
-            correct_or_not = tf.cast(tf.equal(tf.argmax(self.Y, axis=1), tf.argmax(self.logits, axis=1)), tf.float32)
+            ones = tf.ones_like(self.Y)
+            zeros = tf.zeros_like(self.Y)
+
+            self.guess = tf.where(tf.greater(self.sigmoid, cnfg.sigmoid_accuracy_threshold), ones, zeros)
+            correct_or_not = tf.cast(tf.equal(self.Y, self.guess), tf.float32)
             # 1 if correct, 0 if not
             
             self.accuracy = tf.reduce_mean(correct_or_not)
             self.accuracy_batch_count = tf.reduce_sum(correct_or_not)
-
-            # Logloss
-            L = tf.nn.softmax_cross_entropy_with_logits(labels=self.Y, logits=self.logits)
-            self.logloss = tf.reduce_mean(L)
-            self.logloss_batch_sum = tf.reduce_sum(L)
             
             # Optimization
             learning_rate = tf.train.exponential_decay(cnfg.lr_initial, global_step, 

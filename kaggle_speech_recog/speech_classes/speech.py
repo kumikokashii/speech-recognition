@@ -20,6 +20,12 @@ class Speech():
         
     def __str__(self):
         output = '{}, {}, sample rate {}, data length {}'.format(self.label, self.file_path, self.sample_rate, self.data_len)
+        if hasattr(self, 'novelty_det_sigmoid'):
+            output += '\n'
+            output += 'novelty det sigmoid: {}'.format(self.novelty_det_sigmoid)
+        if hasattr(self, 'svm_in_class'):
+            output += '\n'
+            output += 'svm in class: {}'.format(', '.join(self.svm_in_class))    
         if self.predicted_label is not None:
             output += '\n'
             output += 'prediction: {}'.format(self.predicted_label)

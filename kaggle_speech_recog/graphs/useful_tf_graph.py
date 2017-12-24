@@ -90,7 +90,7 @@ class UsefulTFGraph(tf.Graph):
             self.log.save()
             self.make_ckp(self.saver_hourly, 'hourly', step)
                  
-    def load_and_predict(self, X_test, path2ckp, batch_size):
+    def load_and_predict(self, X_test, path2ckp, batch_size, annotate=True):
         len_X_test = len(X_test)
         
         # User specifies checkpoint
@@ -104,7 +104,8 @@ class UsefulTFGraph(tf.Graph):
             offset = 0
             done_check = 15000
             
-            print('Predicting starts @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
+            if annotate:
+                print('Predicting starts @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
             while (offset < len_X_test):
                 X_batch = X_test[offset: offset+batch_size, :]
                 Y_batch = self.logits.eval(feed_dict={self.X: X_batch, 
@@ -114,21 +115,55 @@ class UsefulTFGraph(tf.Graph):
                 
                 offset += batch_size
                 if done_check <= offset:
-                    print('{:,} datapoints completed at {:%m/%d/%Y %H:%M:%S}'.format(offset, datetime.now()))
-                    done_check += 15000             
-            print('Predicting ends @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
+                    if annotate:
+                        print('{:,} datapoints completed at {:%m/%d/%Y %H:%M:%S}'.format(offset, datetime.now()))
+                    done_check += 15000  
+            if annotate:
+                print('Predicting ends @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
 
         return Y_test
             
-    def predict(self, X_test, ckp_dir=None, batch_size=10000):
+    def predict(self, X_test, ckp_dir=None, batch_size=10000, annotate=True):
         # Use best model i.e. model with best ave ll valid
         if ckp_dir is None:
             ckp_dir = self.ckp_dir
         
         path2ckp = tf.train.latest_checkpoint(ckp_dir + '/best', 'best_checkpoint')
         
-        return self.load_and_predict(X_test, path2ckp, batch_size)
+        return self.load_and_predict(X_test, path2ckp, batch_size, annotate)     
 
+    def get_sigmoid(self, X_test, ckp_dir, batch_size=10000, annotate=True):
+        len_X_test = len(X_test)
+        path2ckp = tf.train.latest_checkpoint(ckp_dir + '/best', 'best_checkpoint')
+        
+        with tf.Session(graph=self) as sess:
+            tf.global_variables_initializer().run()
+            
+            saver = tf.train.Saver()
+            saver.restore(sess, path2ckp)  # Load model
+
+            sigmoid_test = np.empty([len_X_test, 1])
+            offset = 0
+            done_check = 15000
+            
+            if annotate:
+                print('Getting sigmoid starts @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
+            while (offset < len_X_test):
+                X_batch = X_test[offset: offset+batch_size, :]
+                sigmoid_batch = self.sigmoid.eval(feed_dict={self.X: X_batch, 
+                                                             self.keep_prob: 1.0,
+                                                             self.is_training: False})
+                sigmoid_test[offset: offset+batch_size, :] = sigmoid_batch
+                
+                offset += batch_size
+                if done_check <= offset:
+                    if annotate:
+                        print('{:,} datapoints completed at {:%m/%d/%Y %H:%M:%S}'.format(offset, datetime.now()))
+                    done_check += 15000  
+            if annotate:
+                print('Getting sigmoid ends @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
+
+        return sigmoid_test        
     
     # Helpers for train_model       
     def make_ckp_tb_dir(self, ckp_dir, tb_dir, joined_name):

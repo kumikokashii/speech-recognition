@@ -78,18 +78,25 @@ class SpeechList(list):
         if speech is not None:
             self.remove(speech)
     
-    def get_list_of_label(self, label):
-        list_ = SpeechList(name=label)
+    def get_list_of_label(self, label_list):
+        list_ = SpeechList(name=', '.join(label_list))
         for speech in self:
-            if speech.label == label:
+            if speech.label in label_list:
                 list_.append(speech)
         return list_
-        
+
+    def get_list_of_predicted_label(self, label_list):
+        list_ = SpeechList(name=', '.join(label_list))
+        for speech in self:
+            if speech.predicted_label in label_list:
+                list_.append(speech)
+        return list_  
+    
     def get_random(self, label=None):
         if label is None:
             list_ = self
         else:
-            list_ = self.get_list_of_label(label)
+            list_ = self.get_list_of_label([label])
         return random.choice(list_)
     
     def get_stats(self):
@@ -167,6 +174,13 @@ class SpeechList(list):
         enc = OneHotEncoder(sparse=False)
         return enc.fit_transform(i_list_reshaped)
     
+    def get_novelty_det_label_matrix(self, novelty_det_in_class):
+        list_ = []
+        for speech in self:
+            in_class = 1 if speech.label in novelty_det_in_class else 0
+            list_.append([in_class])
+        return np.array(list_)
+    
     def get_X_and_Y_matrices(self, X_vector_len, split=None):
         X = self.get_feature_matrix(X_vector_len)
         Y = self.get_label_matrix()
@@ -201,7 +215,7 @@ class SpeechList(list):
                 offset += vector_len
                 
     def fabricate_noise(self, n, vector_len):
-        noise_speech_list = self.get_list_of_label('_background_noise_')
+        noise_speech_list = self.get_list_of_label(['_background_noise_'])
         n_noise_speech = len(noise_speech_list)       
         
         for i in range(n):
@@ -217,7 +231,8 @@ class SpeechList(list):
             self.append(new_noise_speech)        
     
     def get_spectrogram_X_and_Y(self, X_vector_len, split_noise=False, n_fabricate_noise=0,
-                                spec_v=None, take_log=False, split=None):
+                                spec_v=None, take_log=False, split=None, 
+                                novelty_det=False, novelty_det_in_class=None):
         if split_noise:
             self.split_noise(X_vector_len)
         
@@ -225,7 +240,10 @@ class SpeechList(list):
             self.fabricate_noise(n_fabricate_noise, X_vector_len)
 
         X = self.get_spectrogram_feature_ndarray(X_vector_len, spec_v, take_log)
-        Y = self.get_label_matrix()            
+        if not novelty_det:
+            Y = self.get_label_matrix() 
+        else:
+            Y = self.get_novelty_det_label_matrix(novelty_det_in_class)                       
             
         if split is None:
             return X, Y
@@ -269,7 +287,9 @@ class SpeechList(list):
         for i in range(len(self)):
             self[i].predicted_label = list_[i]
 
-    def save_submission_csv(self, dir_, name):
+    def save_submission_csv(self, dir_, name, 
+                            use_novelty_det=False, novelty_det_sigmoid_threshold=0.5, 
+                            use_svm=False, keep_noise=False):
         files = []
         labels = []
         for speech in self:
@@ -281,8 +301,66 @@ class SpeechList(list):
         df.loc[df['label'] == '_background_noise_', 'label'] = 'silence'
         include = ['yes', 'no' , 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go', 'silence']
         df.loc[[(label not in include) for label in df['label']], 'label'] = 'unknown'
+        col4label = 'label'
+
+        if use_novelty_det:
+            name = name[:-4] + '_novelty_det'
+                             
+            novelty_det_sigmoid = []
+            for speech in self:
+                novelty_det_sigmoid.append(speech.novelty_det_sigmoid)
+            df['novelty det sigmoid'] = novelty_det_sigmoid
+            
+            df['label with novelty det'] = df['label']
+            df.loc[df['novelty det sigmoid'] <= novelty_det_sigmoid_threshold, 'label with novelty det'] = 'unknown'
+            df.loc[df['label'] == 'silence', 'label with novelty det'] = 'silence'
+            
+            name += '.csv'
+            col4label = 'label with novelty det'          
         
+        if use_svm:
+            name = name[:-4] + '_svm'
+                             
+            n_svm_in_class = []
+            for speech in self:
+                n_svm_in_class.append(len(speech.svm_in_class))
+            df['# svm in class'] = n_svm_in_class
+            
+            df['label with svm'] = df['label']
+            df.loc[df['# svm in class'] == 0, 'label with svm'] = 'unknown'
+            if keep_noise:
+                name += '_keepnoise'
+                df.loc[df['label'] == 'silence', 'label with svm'] = 'silence'
+            
+            name += '.csv'
+            col4label = 'label with svm'        
+
         save_as = '/'.join([dir_, name])
-        df.to_csv(save_as, index=False)
+        df[['fname', col4label]].rename(columns={col4label: 'label'}).to_csv(save_as, index=False)
+        
+    def add_svm_predictions(self, Y, one_class_svm):
+        svm_prediction = {}
+        for label in one_class_svm:
+            svm_prediction[label] = one_class_svm[label].predict(Y)
+
+        for i in range(len(self)):
+            self[i].svm_in_class = []
+            for label in svm_prediction:
+                if svm_prediction[label][i] == 1:
+                    self[i].svm_in_class.append(label)
+                    
+    def add_novelty_det_sigmoid(self, sigmoid_matrix):
+        for i in range(len(self)):
+            self[i].novelty_det_sigmoid = sigmoid_matrix.item((i, 0))
+            
+    def get_list_sigmoid_bw(self, low=0.95, high=0.98):
+        list_ = SpeechList(name='filtered by sigmoid')
+        for speech in self:
+            if (speech.novelty_det_sigmoid >= low) and (speech.novelty_det_sigmoid <= high):
+                list_.append(speech)
+        return list_        
+                
+            
         
         
+                             
