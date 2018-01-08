@@ -99,8 +99,7 @@ class SpeechList(list):
             list_ = self.get_list_of_label([label])
         return random.choice(list_)
     
-    def get_stats(self):
-        
+    def get_stats(self):        
         # Find most frequently found data size
         list_ = [speech.data_len for speech in self]
         len_ = len(list_)
@@ -159,11 +158,20 @@ class SpeechList(list):
             list_.append(speech.get_data_array_of_length(vector_len))
         return np.matrix(list_)
     
-    def get_label_matrix(self):
+    def get_label_matrix(self, group_unknown=False):
         # Labels in one dimension
         list_ = []
-        for speech in self:
-            list_.append(speech.label)
+        
+        if group_unknown:
+            in_group = ['yes', 'no' , 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go', '_background_noise_']
+            i_unknown = []
+            
+        for i in range(len(self)):  # Loop through speeches
+            label = self[i].label
+            if group_unknown and (label not in in_group):
+                label = 'unknown'
+                i_unknown.append(i)
+            list_.append(label)
 
         # Label indexes in one dimension
         self.le = LabelEncoder()
@@ -172,6 +180,9 @@ class SpeechList(list):
         # One hot encode label indexes
         i_list_reshaped = [[i] for i in i_list]
         enc = OneHotEncoder(sparse=False)
+        
+        if group_unknown:
+            return enc.fit_transform(i_list_reshaped), i_unknown
         return enc.fit_transform(i_list_reshaped)
     
     def get_novelty_det_label_matrix(self, novelty_det_in_class):
@@ -228,8 +239,59 @@ class SpeechList(list):
             new_noise_speech.file_path = None 
             new_noise_speech.data = (s1_data*ratio) + (s2_data*(1-ratio))
             new_noise_speech.data_len = vector_len
-            self.append(new_noise_speech)        
-    
+            self.append(new_noise_speech)
+            
+    def split_known_unknown(self, X, Y, i_unknown):
+        i_unknown = np.array(i_unknown)
+
+        X_unknown = X[i_unknown, :]
+        Y_unknown = Y[i_unknown, :]
+
+        boolean_known = np.ones(len(X), bool)
+        boolean_known[i_unknown] = False
+        
+        X_known = X[boolean_known]
+        Y_known = Y[boolean_known]
+        
+        return X_known, X_unknown, Y_known, Y_unknown
+        
+    def get_group_unknown_spectrogram_X_and_Y(self, X_vector_len, split_noise=False, n_fabricate_noise=0, 
+                                              spec_v=None, take_log=False, split=None):
+        if split_noise:
+            self.split_noise(X_vector_len)
+        
+        if n_fabricate_noise > 0:
+            self.fabricate_noise(n_fabricate_noise, X_vector_len)
+
+        X = self.get_spectrogram_feature_ndarray(X_vector_len, spec_v, take_log)
+        Y, i_unknown = self.get_label_matrix(group_unknown=True)                   
+        
+        X_known, X_unknown, Y_known, Y_unknown = self.split_known_unknown(X, Y, i_unknown)
+        
+        if split is None:
+            return X_known, X_unknown, Y_known, Y_unknown
+
+        # 1. Split known into train and test
+        X_train_known, X_test_known, Y_train_known, Y_test_known = train_test_split(X_known, Y_known, test_size=(1-split), random_state=0)        
+        
+        # 2. Pick unknown for test
+        n_test_unknown = int(len(X_test_known) / 11)  # 11 known classes total      
+        i_test_unknown = np.random.choice(len(X_unknown), size=n_test_unknown, replace=False)
+        X_test_unknown = X_unknown[i_test_unknown, :]
+        Y_test_unknown = Y_unknown[i_test_unknown, :]
+        
+        # 3. Rest of unknown is for train
+        boolean_train_unknown = np.ones(len(X_unknown), bool)
+        boolean_train_unknown[i_test_unknown] = False
+        X_train_unknown = X_unknown[boolean_train_unknown]
+        Y_train_unknown = Y_unknown[boolean_train_unknown]
+
+        # 4. Return train with separate known and unknown. Together for test.
+        X_test = np.concatenate((X_test_known, X_test_unknown))
+        Y_test = np.concatenate((Y_test_known, Y_test_unknown))
+        
+        return X_train_known, X_train_unknown, Y_train_known, Y_train_unknown, X_test, Y_test            
+
     def get_spectrogram_X_and_Y(self, X_vector_len, split_noise=False, n_fabricate_noise=0,
                                 spec_v=None, take_log=False, split=None, 
                                 novelty_det=False, novelty_det_in_class=None):
@@ -241,7 +303,7 @@ class SpeechList(list):
 
         X = self.get_spectrogram_feature_ndarray(X_vector_len, spec_v, take_log)
         if not novelty_det:
-            Y = self.get_label_matrix() 
+            Y = self.get_label_matrix()
         else:
             Y = self.get_novelty_det_label_matrix(novelty_det_in_class)                       
             
@@ -250,7 +312,7 @@ class SpeechList(list):
         
         X1, X2, Y1, Y2 = train_test_split(X, Y, test_size=(1-split), random_state=0)
         return X1, Y1, X2, Y2
-    
+
     def get_train(path2files_dir):  # Static
         train = SpeechList(name='Train')
         for sub_dir in os.listdir(path2files_dir):

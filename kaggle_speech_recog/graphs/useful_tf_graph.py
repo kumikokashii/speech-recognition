@@ -1,4 +1,3 @@
-    
 import tensorflow as tf
 
 from sklearn.utils import shuffle
@@ -19,14 +18,25 @@ class UsefulTFGraph(tf.Graph):
     def train_model(self, cnfg, XY_train_valid, annotate=True):
         # Prep
         self.batch_size = cnfg.batch_size
+        self.random_pick_unknown = getattr(cnfg, 'random_pick_unknown', False)
         self.early_stopping_patience = cnfg.early_stopping_patience
-
-        self.X_train, self.Y_train, self.X_valid, self.Y_valid = XY_train_valid
-        self.len_X_train = len(self.X_train)
-        self.len_X_valid = len(self.X_valid)
-        
         self.annotate = annotate
+
+        # Break up data
+        if self.random_pick_unknown:
+            self.X_train_known, self.X_train_unknown, self.Y_train_known, self.Y_train_unknown, self.X_valid, self.Y_valid = XY_train_valid
+        else:
+            self.X_train, self.Y_train, self.X_valid, self.Y_valid = XY_train_valid
+            
+        # More prep
+        if self.random_pick_unknown:
+            self.len_X_train = int(len(self.X_train_known) / 11 * 12)
+            self.n_random_unknown = self.len_X_train - len(self.X_train_known)
+        else:
+            self.len_X_train = len(self.X_train)
+        self.len_X_valid = len(self.X_valid)        
         
+        # For checkpoint models and log
         joined_name = '_'.join([self.name, self.cnfg.name, cnfg.name])
         self.make_ckp_tb_dir(cnfg.ckp_dir, cnfg.tb_dir, joined_name)
         self.log = Log(cnfg.log_dir, joined_name, self.name, self.ckp_dir, self.tb_dir, self.cnfg, cnfg)
@@ -181,6 +191,11 @@ class UsefulTFGraph(tf.Graph):
         os.makedirs(self.ckp_dir + '/best')
         
     def get_next_batch(self):
+        if self.random_pick_unknown:
+            i_random_unknown = np.random.choice(len(self.X_train_unknown), size=self.n_random_unknown, replace=False)
+            self.X_train = np.concatenate((self.X_train_known, self.X_train_unknown[i_random_unknown, :]))
+            self.Y_train = np.concatenate((self.Y_train_known, self.Y_train_unknown[i_random_unknown, :]))           
+        
         if self.offset == 0:  # Shuffle every epoch
             self.X_train, self.Y_train = shuffle(self.X_train, self.Y_train)
 
