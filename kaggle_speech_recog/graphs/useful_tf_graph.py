@@ -34,7 +34,10 @@ class UsefulTFGraph(tf.Graph):
             self.n_random_unknown = self.len_X_train - len(self.X_train_known)
         else:
             self.len_X_train = len(self.X_train)
-        self.len_X_valid = len(self.X_valid)        
+        self.len_X_valid = len(self.X_valid)
+        
+        steps_per_epoch = int(self.len_X_train / self.batch_size)
+        leftover_per_epoch = self.len_X_train - (self.batch_size * steps_per_epoch)
         
         # For checkpoint models and log
         joined_name = '_'.join([self.name, self.cnfg.name, cnfg.name])
@@ -54,10 +57,13 @@ class UsefulTFGraph(tf.Graph):
                     self.log.train_start = datetime.now()
                     print('='*60)
                     print(joined_name)
-                    print('='*60)
-                    print('Epoch size is {:,}'.format(self.len_X_train))
-                    print('Training starts @ {:%m/%d/%Y %H:%M:%S}'.format(self.log.train_start))                   
+                    print('='*60)                    
+                    print('Epoch size is {:,} | Batch size is {:,} | {:,} steps per epoch'.format(self.len_X_train, self.batch_size, steps_per_epoch))
+                    print('{:,} leftover gets discarded at the end of every epoch'.format(leftover_per_epoch))
                     
+                    print()
+                    print('Training starts @ {:%m/%d/%Y %H:%M:%S}'.format(self.log.train_start))
+     
                     self.offset = 0
                     epoch = 0
                     self.last_hr_model_time = datetime.now()
