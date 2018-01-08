@@ -55,7 +55,8 @@ class UsefulTFGraph(tf.Graph):
                     print('='*60)
                     print(joined_name)
                     print('='*60)
-                    print('Training starts @ {:%m/%d/%Y %H:%M:%S}'.format(self.log.train_start))
+                    print('Epoch size is {:,}'.format(self.len_X_train))
+                    print('Training starts @ {:%m/%d/%Y %H:%M:%S}'.format(self.log.train_start))                   
                     
                     self.offset = 0
                     epoch = 0
@@ -90,7 +91,7 @@ class UsefulTFGraph(tf.Graph):
                         print('Early stopping now')
                         break
 
-                if (annotate) and ((step == 1) or (step % cnfg.print_every == 0)):
+                if (annotate) and ((step == 1) or (self.offset == 0)):
                     print('Epoch {:,} Step {:,} ends @ {:%m/%d/%Y %H:%M:%S} [Train] {:.3f}, {:.1f}% [Valid] {:.1f}% [Ave valid] {:.3f}'.format(epoch, step, datetime.now(), ll_train, accu_train*100, accu_valid*100, self.ave_ll_valid))
 
             # The End
@@ -190,20 +191,19 @@ class UsefulTFGraph(tf.Graph):
         os.makedirs(self.ckp_dir + '/hourly')
         os.makedirs(self.ckp_dir + '/best')
         
-    def get_next_batch(self):
-        if self.random_pick_unknown:
-            i_random_unknown = np.random.choice(len(self.X_train_unknown), size=self.n_random_unknown, replace=False)
-            self.X_train = np.concatenate((self.X_train_known, self.X_train_unknown[i_random_unknown, :]))
-            self.Y_train = np.concatenate((self.Y_train_known, self.Y_train_unknown[i_random_unknown, :]))           
-        
+    def get_next_batch(self):        
         if self.offset == 0:  # Shuffle every epoch
+            if self.random_pick_unknown:  # Pick another random set
+                i_random_unknown = np.random.choice(len(self.X_train_unknown), size=self.n_random_unknown, replace=False)
+                self.X_train = np.concatenate((self.X_train_known, self.X_train_unknown[i_random_unknown, :]))
+                self.Y_train = np.concatenate((self.Y_train_known, self.Y_train_unknown[i_random_unknown, :]))            
             self.X_train, self.Y_train = shuffle(self.X_train, self.Y_train)
 
         X_batch = self.X_train[self.offset: self.offset+self.batch_size, :]
         Y_batch = self.Y_train[self.offset: self.offset+self.batch_size, :]
         
         self.offset += self.batch_size  # For next round
-        if self.offset >= self.len_X_train:
+        if (self.offset + self.batch_size) >= self.len_X_train:  # Discard uneven leftoever at the end
             self.offset = 0
         
         return X_batch, Y_batch
