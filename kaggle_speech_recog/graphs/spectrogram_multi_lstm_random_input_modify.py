@@ -115,15 +115,10 @@ class SpectrogramMultiLSTMRandomInputModify(UsefulTFGraph):
                 X2 = self.apply_bn_dr_XWplusb(X=X1, is_training=self.is_training, dr_keep_prob=self.keep_prob,
                                               W_shape=[n_flat, cnfg.n_hidden1], W_stddev=0.015,
                                               b_shape=[cnfg.n_hidden1], b_value=0.1)
-                
-            with tf.variable_scope('flat2'):
-                X3 = self.apply_bn_dr_XWplusb(X=X2, is_training=self.is_training, dr_keep_prob=self.keep_prob,
-                                              W_shape=[cnfg.n_hidden1, cnfg.n_hidden2], W_stddev=0.015,
-                                              b_shape=[cnfg.n_hidden2], b_value=0.1)
 
-            with tf.variable_scope('flat3'):
-                self.logits = self.apply_bn_dr_XWplusb(X=X3, is_training=self.is_training, dr_keep_prob=self.keep_prob,
-                                                       W_shape=[cnfg.n_hidden2, cnfg.Y_vector_len], W_stddev=0.015,
+            with tf.variable_scope('flat2'):
+                self.logits = self.apply_bn_dr_XWplusb(X=X2, is_training=self.is_training, dr_keep_prob=self.keep_prob,
+                                                       W_shape=[cnfg.n_hidden1, cnfg.Y_vector_len], W_stddev=0.015,
                                                        b_shape=[cnfg.Y_vector_len], b_value=0.1,
                                                        skip_relu=True)                
                 
