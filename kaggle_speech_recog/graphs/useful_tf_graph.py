@@ -149,6 +149,39 @@ class UsefulTFGraph(tf.Graph):
         
         return self.load_and_predict(X_test, path2ckp, batch_size, annotate)     
 
+    def get_logits(self, X, ckp_dir, batch_size=10000, annotate=True):
+        len_X = len(X)
+        path2ckp = tf.train.latest_checkpoint(ckp_dir + '/best', 'best_checkpoint')
+        
+        with tf.Session(graph=self) as sess:
+            tf.global_variables_initializer().run()
+            
+            saver = tf.train.Saver()
+            saver.restore(sess, path2ckp)  # Load model
+
+            logits = np.empty([len_X, self.cnfg.Y_vector_len])
+            offset = 0
+            done_check = 15000
+            
+            if annotate:
+                print('Getting logits starts @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
+            while (offset < len_X):
+                X_batch = X[offset: offset+batch_size, :]
+                logits_batch = self.logits.eval(feed_dict={self.X: X_batch, 
+                                                           self.keep_prob: 1.0,
+                                                           self.is_training: False})
+                logits[offset: offset+batch_size, :] = logits_batch
+                
+                offset += batch_size
+                if done_check <= offset:
+                    if annotate:
+                        print('{:,} datapoints completed at {:%m/%d/%Y %H:%M:%S}'.format(offset, datetime.now()))
+                    done_check += 15000  
+            if annotate:
+                print('Getting logits ends @ {:%m/%d/%Y %H:%M:%S}'.format(datetime.now()))
+
+        return logits       
+    
     def get_sigmoid(self, X_test, ckp_dir, batch_size=10000, annotate=True):
         len_X_test = len(X_test)
         path2ckp = tf.train.latest_checkpoint(ckp_dir + '/best', 'best_checkpoint')

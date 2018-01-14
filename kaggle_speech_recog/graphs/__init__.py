@@ -3,6 +3,8 @@ from .train_log import *
 
 from .useful_tf_graph import *
 
+from .ensemble import *
+
 from .novelty_detection_spectrogram_multi_lstm_random_input_modify import *
 
 from .spectrogram_multi_lstm_random_input_modify_v2 import *
