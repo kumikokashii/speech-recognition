@@ -5,8 +5,17 @@ from .graphs import *
 
 def gather_logits(X, log_dir, logs):
     for i in range(len(logs)):
-        path2log = '/'.join([log_dir, logs[i]])
+        log_name = logs[i]
+        path2log = '/'.join([log_dir, log_name])
         log = pickle.load(open(path2log, 'rb'))
+        
+        # Band aid
+        if log_name.startswith('NoveltyDetectionSpectrogramMultiLSTMRandomInputModify'):
+            log.g_cnfg.Y_vector_len = 1
+        if log_name in ['SpectrogramMultiLSTMRandomInputModify_graph_03_finer_layers_run_01.log', 
+                        'SpectrogramMultiLSTMRandomInputModify_graph_04_kindof_finer_layers_run_01.log']:
+            log.graph_name = 'SpectrogramMultiLSTMRandomInputModify2hiddens'
+            
         GraphClass = globals()[log.graph_name]  # Pick up graph class used to train model
         graph = GraphClass(log.g_cnfg)  # Load the same graph configuration
 

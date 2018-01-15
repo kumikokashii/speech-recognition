@@ -7,6 +7,7 @@ from .ensemble import *
 
 from .novelty_detection_spectrogram_multi_lstm_random_input_modify import *
 
+from .spectrogram_multi_lstm_random_input_modify_2hiddens import *
 from .spectrogram_multi_lstm_random_input_modify_v2 import *
 from .spectrogram_concat_clstm_v2 import *
 from .spectrogram_concat_clstm import *
