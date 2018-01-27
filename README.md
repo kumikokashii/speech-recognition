@@ -1,4 +1,4 @@
-# speech-recognition
+# Speech Recognition Kaggle Competition
 Kaggle competition to guess spoken words: https://www.kaggle.com/c/tensorflow-speech-recognition-challenge
 
 ## Got in top 10% for the first time on Kaggle. Received a bronze medal ^_^
